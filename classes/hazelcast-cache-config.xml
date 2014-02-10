@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  ~ Copyright (c) 2008-2015, Hazelcast, Inc. All Rights Reserved.
+  ~ Copyright (c) 2008-2012, Hazel Bilisim Ltd. All Rights Reserved.
   ~
   ~ Licensed under the Apache License, Version 2.0 (the "License");
   ~ you may not use this file except in compliance with the License.
@@ -14,23 +14,65 @@
   ~ See the License for the specific language governing permissions and
   ~ limitations under the License.
   -->
-<hazelcast xmlns="http://www.hazelcast.com/schema/config"
-           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-           xsi:schemaLocation="http://www.hazelcast.com/schema/config
-           http://www.hazelcast.com/schema/config/hazelcast-config-3.10.xsd">
-    <import resource="${openfireHome}/conf/hazelcast-local-config.xml"/>
-    <properties>
-      <property name="hazelcast.logging.type">slf4j</property>
-      <property name="hazelcast.operation.call.timeout.millis">30000</property>
-      <property name="hazelcast.memcache.enabled">false</property>
-      <property name="hazelcast.rest.enabled">false</property>
-    </properties>
+
+<hazelcast xsi:schemaLocation="http://www.hazelcast.com/schema/config hazelcast-config-2.3.xsd"
+           xmlns="http://www.hazelcast.com/schema/config"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <group>
+        <name>openfire</name>
+        <password>openfire</password>
+    </group>
     <management-center enabled="false"/>
+    <network>
+        <port auto-increment="true">5701</port>
+        <join>
+            <multicast enabled="true">
+                <multicast-group>224.2.2.3</multicast-group>
+                <multicast-port>54327</multicast-port>
+            </multicast>
+            <tcp-ip enabled="false"/>
+            <aws enabled="false"/>
+        </join>
+        <interfaces enabled="false"/>
+        <ssl enabled="false" />
+        <socket-interceptor enabled="false" />
+        <symmetric-encryption enabled="false">
+            <!--
+               encryption algorithm such as
+               DES/ECB/PKCS5Padding,
+               PBEWithMD5AndDES,
+               AES/CBC/PKCS5Padding,
+               Blowfish,
+               DESede
+            -->
+            <algorithm>PBEWithMD5AndDES</algorithm>
+            <!-- salt value to use when generating the secret key -->
+            <salt>thesalt</salt>
+            <!-- pass phrase to use when generating the secret key -->
+            <password>thepass</password>
+            <!-- iteration count to use when generating the secret key -->
+            <iteration-count>19</iteration-count>
+        </symmetric-encryption>
+        <asymmetric-encryption enabled="false">
+            <!-- encryption algorithm -->
+            <algorithm>RSA/NONE/PKCS1PADDING</algorithm>
+            <!-- private key password -->
+            <keyPassword>thekeypass</keyPassword>
+            <!-- private key alias -->
+            <keyAlias>local</keyAlias>
+            <!-- key store type -->
+            <storeType>JKS</storeType>
+            <!-- key store password -->
+            <storePassword>thestorepass</storePassword>
+            <!-- path to the key store -->
+            <storePath>keystore</storePath>
+        </asymmetric-encryption>
+    </network>
     <partition-group enabled="false"/>
-    <executor-service name="default">
-        <pool-size>16</pool-size>
-        <!--Queue capacity. 0 means Integer.MAX_VALUE.-->
-        <queue-capacity>0</queue-capacity>
+    <executor-service>
+        <core-pool-size>16</core-pool-size>
+        <max-pool-size>64</max-pool-size>
+        <keep-alive-seconds>60</keep-alive-seconds>
     </executor-service>
     <queue name="default">
         <!--
@@ -40,34 +82,17 @@
             Any integer between 0 and Integer.MAX_VALUE. 0 means
             Integer.MAX_VALUE. Default is 0.
         -->
-        <max-size>0</max-size>
+        <max-size-per-jvm>0</max-size-per-jvm>
         <!--
-            Number of backups. If 1 is set as the backup-count for example,
-            then all entries of the map will be copied to another JVM for
-            fail-safety. 0 means no backup.
+            Name of the map configuration that will be used for the backing distributed
+            map for this queue.
         -->
-        <backup-count>1</backup-count>
-
-        <!--
-            Number of async backups. 0 means no backup.
-        -->
-        <async-backup-count>0</async-backup-count>
-
-        <empty-queue-ttl>-1</empty-queue-ttl>
+        <backing-map-ref>default</backing-map-ref>
     </queue>
     <!--
-        Default Hazelcast cache configuration for Openfire. 
+    	Default Hazelcast cache configuration for Openfire. 
     -->
     <map name="default">
-        <!--
-           Data type that will be used for storing recordMap.
-           Possible values:
-           BINARY (default): keys and values will be stored as binary data
-           OBJECT : values will be stored in their object forms
-           NATIVE : values will be stored in non-heap region of JVM
-        -->
-        <in-memory-format>BINARY</in-memory-format>
-
         <!--
             Number of backups. If 1 is set as the backup-count for example,
             then all entries of the map will be copied to another JVM for
@@ -85,18 +110,18 @@
         -->
         <read-backup-data>true</read-backup-data>
         <!--
-            Maximum number of seconds for each entry to stay in the map. Entries that are
-            older than <time-to-live-seconds> and not updated for <time-to-live-seconds>
-            will get automatically evicted from the map.
-            Any integer between 0 and Integer.MAX_VALUE. 0 means infinite. Default is 0.
-        -->
+			Maximum number of seconds for each entry to stay in the map. Entries that are
+			older than <time-to-live-seconds> and not updated for <time-to-live-seconds>
+			will get automatically evicted from the map.
+			Any integer between 0 and Integer.MAX_VALUE. 0 means infinite. Default is 0.
+		-->
         <time-to-live-seconds>0</time-to-live-seconds>
         <!--
-            Maximum number of seconds for each entry to stay idle in the map. Entries that are
-            idle(not touched) for more than <max-idle-seconds> will get
-            automatically evicted from the map. Entry is touched if get, put or containsKey is called.
-            Any integer between 0 and Integer.MAX_VALUE. 0 means infinite. Default is 0.
-        -->
+			Maximum number of seconds for each entry to stay idle in the map. Entries that are
+			idle(not touched) for more than <max-idle-seconds> will get
+			automatically evicted from the map. Entry is touched if get, put or containsKey is called.
+			Any integer between 0 and Integer.MAX_VALUE. 0 means infinite. Default is 0.
+		-->
         <max-idle-seconds>0</max-idle-seconds>
         <!--
             Valid values are:
@@ -112,7 +137,7 @@
             Any integer between 0 and Integer.MAX_VALUE. 0 means
             Integer.MAX_VALUE. Default is 0.
         -->
-        <max-size policy="PER_NODE">100000</max-size>
+        <max-size policy="per_partition">100000</max-size>
         <!--
             When max. size is reached, specified percentage of
             the map will be evicted. Any integer between 0 and 100.
@@ -121,92 +146,39 @@
         -->
         <eviction-percentage>25</eviction-percentage>
         <!--
-            Minimum time in milliseconds which should pass before checking
-            if a partition of this map is evictable or not.
-            Default value is 100 millis.
-        -->
-        <min-eviction-check-millis>100</min-eviction-check-millis>
-        <!--
             While recovering from split-brain (network partitioning),
             map entries in the small cluster will merge into the bigger cluster
             based on the policy set here. When an entry merge into the
             cluster, there might an existing entry with the same key already.
             Values of these entries might be different for that same key.
             Which value should be set for the key? Conflict is resolved by
-            the policy set here. Default policy is PutIfAbsentMapMergePolicy
+            the policy set here. Default policy is hz.ADD_NEW_ENTRY
 
             There are built-in merge policies such as
-            com.hazelcast.map.merge.PassThroughMergePolicy; entry will be added if there is no existing entry for the key.
-            com.hazelcast.map.merge.PutIfAbsentMapMergePolicy ; entry will be added if the merging entry doesn't exist in the cluster.
-            com.hazelcast.map.merge.HigherHitsMapMergePolicy ; entry with the higher hits wins.
-            com.hazelcast.map.merge.LatestUpdateMapMergePolicy ; entry with the latest update wins.
+            hz.NO_MERGE      ; no entry will merge.
+            hz.ADD_NEW_ENTRY ; entry will be added if the merging entry's key
+                               doesn't exist in the cluster.
+            hz.HIGHER_HITS   ; entry with the higher hits wins.
+            hz.LATEST_UPDATE ; entry with the latest update wins.
         -->
-        <merge-policy>com.hazelcast.map.merge.PassThroughMergePolicy</merge-policy>
-        <!--
-            Near cache provides a local view of the clustered map, which is
-            ideal for high-read caches. Each cluster member retains a local
-            copy of entries retrieved from the distributed map. This reduces 
-            network load for caches that require frequent reads. However, if 
-            the	entries are updated frequently, there can be a performance 
-            penalty due to invalidations on the other cluster members.
-        -->
+        <merge-policy>hz.ADD_NEW_ENTRY</merge-policy>
+		<!--
+			Near cache provides a local view of the clustered map, which is
+			ideal for high-read caches. Each cluster member retains a local
+			copy of entries retrieved from the distributed map. This reduces 
+			network load for caches that require frequent reads. However, if 
+			the	entries are updated frequently, there can be a performance 
+			penalty due to invalidations on the other cluster members.
+		-->
         <near-cache>
-            <eviction eviction-policy="LRU" max-size-policy="ENTRY_COUNT" size="1000"/>
+            <max-size>1000</max-size>
             <time-to-live-seconds>0</time-to-live-seconds>
             <max-idle-seconds>600</max-idle-seconds>
+            <eviction-policy>LRU</eviction-policy>
             <invalidate-on-change>true</invalidate-on-change>
         </near-cache>
     </map>
     
-    <multimap name="default">
-        <backup-count>1</backup-count>
-        <value-collection-type>SET</value-collection-type>
-    </multimap>
-
-    <list name="default">
-        <backup-count>1</backup-count>
-    </list>
-
-    <set name="default">
-        <backup-count>1</backup-count>
-    </set>
-
-    <jobtracker name="default">
-        <max-thread-size>0</max-thread-size>
-        <!-- Queue size 0 means number of partitions * 2 -->
-        <queue-size>0</queue-size>
-        <retry-count>0</retry-count>
-        <chunk-size>1000</chunk-size>
-        <communicate-stats>true</communicate-stats>
-        <topology-changed-strategy>CANCEL_RUNNING_OPERATION</topology-changed-strategy>
-    </jobtracker>
-
-    <semaphore name="default">
-        <initial-permits>0</initial-permits>
-        <backup-count>1</backup-count>
-        <async-backup-count>0</async-backup-count>
-    </semaphore>
-
-    <reliable-topic name="default">
-        <read-batch-size>10</read-batch-size>
-        <topic-overload-policy>BLOCK</topic-overload-policy>
-        <statistics-enabled>true</statistics-enabled>
-    </reliable-topic>
-    
-    <ringbuffer name="default">
-        <capacity>10000</capacity>
-        <backup-count>1</backup-count>
-        <async-backup-count>0</async-backup-count>
-        <time-to-live-seconds>30</time-to-live-seconds>
-        <in-memory-format>BINARY</in-memory-format>
-    </ringbuffer>
-
-    <serialization>
-        <portable-version>0</portable-version>
-    </serialization>
-
-    <services enable-defaults="true"/>
-
     <!--  Partitioned Openfire caches without size/time limits (no eviction). -->
     
     <map name="opt-$cacheStats">
@@ -278,13 +250,13 @@
     
     <map name="POP3 Authentication">
         <backup-count>1</backup-count>
-        <max-size policy="PER_NODE">10000</max-size>
+        <max-size policy="per_partition">10000</max-size>
         <time-to-live-seconds>3600</time-to-live-seconds>
         <eviction-policy>LRU</eviction-policy>
     </map>
     <map name="LDAP Authentication">
         <backup-count>1</backup-count>
-        <max-size policy="PER_NODE">10000</max-size>
+        <max-size policy="per_partition">10000</max-size>
         <time-to-live-seconds>7200</time-to-live-seconds>
         <eviction-policy>LRU</eviction-policy>
     </map>
@@ -295,13 +267,18 @@
     </map>
     <map name="File Transfer Cache">
         <backup-count>1</backup-count>
-        <max-size policy="PER_NODE">10000</max-size>
+        <max-size policy="per_partition">10000</max-size>
         <time-to-live-seconds>600</time-to-live-seconds>
+        <eviction-policy>LRU</eviction-policy>
+    </map>
+    <map name="Clearspace SSO Nonce">
+        <backup-count>1</backup-count>
+        <time-to-live-seconds>120</time-to-live-seconds>
         <eviction-policy>LRU</eviction-policy>
     </map>
     <map name="Javascript Cache">
         <backup-count>1</backup-count>
-        <max-size policy="PER_NODE">10000</max-size>
+        <max-size policy="per_partition">10000</max-size>
         <time-to-live-seconds>864000</time-to-live-seconds>
         <eviction-policy>LRU</eviction-policy>
     </map>
@@ -327,7 +304,7 @@
     </map>
     <map name="Last Activity Cache">
         <backup-count>1</backup-count>
-        <max-size policy="PER_NODE">10000</max-size>
+        <max-size policy="per_partition">10000</max-size>
         <time-to-live-seconds>21600</time-to-live-seconds>
         <eviction-policy>LRU</eviction-policy>
     </map>
@@ -338,37 +315,37 @@
     </map>
     <map name="Multicast Service">
         <backup-count>1</backup-count>
-        <max-size policy="PER_NODE">10000</max-size>
+        <max-size policy="per_partition">10000</max-size>
         <time-to-live-seconds>86400</time-to-live-seconds>
         <eviction-policy>LRU</eviction-policy>
     </map>
     <map name="Offline Message Size">
         <backup-count>1</backup-count>
-        <max-size policy="PER_NODE">100000</max-size>
+        <max-size policy="per_partition">100000</max-size>
         <time-to-live-seconds>43200</time-to-live-seconds>
         <eviction-policy>LRU</eviction-policy>
     </map>
     <map name="Offline Presence Cache">
         <backup-count>1</backup-count>
-        <max-size policy="PER_NODE">100000</max-size>
+        <max-size policy="per_partition">100000</max-size>
         <time-to-live-seconds>21600</time-to-live-seconds>
         <eviction-policy>LRU</eviction-policy>
     </map>
     <map name="Privacy Lists">
         <backup-count>1</backup-count>
-        <max-size policy="PER_NODE">100000</max-size>
+        <max-size policy="per_partition">100000</max-size>
         <time-to-live-seconds>21600</time-to-live-seconds>
         <eviction-policy>LRU</eviction-policy>
     </map>
     <map name="Remote Users Existence">
         <backup-count>1</backup-count>
-        <max-size policy="PER_NODE">100000</max-size>
+        <max-size policy="per_partition">100000</max-size>
         <time-to-live-seconds>600</time-to-live-seconds>
         <eviction-policy>LRU</eviction-policy>
     </map>
     <map name="Remote Server Configurations">
         <backup-count>1</backup-count>
-        <max-size policy="PER_NODE">100000</max-size>
+        <max-size policy="per_partition">100000</max-size>
         <time-to-live-seconds>1800</time-to-live-seconds>
         <eviction-policy>LRU</eviction-policy>
     </map>
@@ -378,33 +355,29 @@
     <map name="Group Metadata Cache">
         <backup-count>1</backup-count>
         <read-backup-data>true</read-backup-data>
-        <max-size policy="PER_NODE">100000</max-size>
+        <max-size policy="per_partition">100000</max-size>
         <max-idle-seconds>3600</max-idle-seconds>
-        <time-to-live-seconds>900</time-to-live-seconds>
         <eviction-policy>LRU</eviction-policy>
     </map>
     <map name="Group">
         <backup-count>1</backup-count>
         <read-backup-data>true</read-backup-data>
-        <max-size policy="PER_NODE">100000</max-size>
+        <max-size policy="per_partition">100000</max-size>
         <max-idle-seconds>3600</max-idle-seconds>
-        <time-to-live-seconds>900</time-to-live-seconds>
         <eviction-policy>LRU</eviction-policy>
     </map>
     <map name="Roster">
         <backup-count>1</backup-count>
         <read-backup-data>true</read-backup-data>
-        <max-size policy="PER_NODE">100000</max-size>
+        <max-size policy="per_partition">100000</max-size>
         <max-idle-seconds>3600</max-idle-seconds>
-        <time-to-live-seconds>21600</time-to-live-seconds>
         <eviction-policy>LRU</eviction-policy>
     </map>
     <map name="User">
         <backup-count>1</backup-count>
         <read-backup-data>true</read-backup-data>
-        <max-size policy="PER_NODE">100000</max-size>
+        <max-size policy="per_partition">100000</max-size>
         <max-idle-seconds>3600</max-idle-seconds>
-        <time-to-live-seconds>1800</time-to-live-seconds>
         <eviction-policy>LRU</eviction-policy>
     </map>
     
@@ -413,24 +386,26 @@
     <map name="VCard">
         <backup-count>1</backup-count>
         <read-backup-data>true</read-backup-data>
-        <max-size policy="PER_NODE">100000</max-size>
+        <max-size policy="per_partition">100000</max-size>
         <time-to-live-seconds>21600</time-to-live-seconds>
         <eviction-policy>LRU</eviction-policy>
         <near-cache>
-            <eviction eviction-policy="LRU" max-size-policy="ENTRY_COUNT" size="10000"/>
+            <max-size>10000</max-size>
             <max-idle-seconds>1800</max-idle-seconds>
+            <eviction-policy>LRU</eviction-policy>
             <invalidate-on-change>true</invalidate-on-change>
         </near-cache>
     </map>
     <map name="Published Items">
         <backup-count>1</backup-count>
         <read-backup-data>true</read-backup-data>
-        <max-size policy="PER_NODE">100000</max-size>
+        <max-size policy="per_partition">100000</max-size>
         <time-to-live-seconds>900</time-to-live-seconds>
         <eviction-policy>LRU</eviction-policy>
         <near-cache>
-            <eviction eviction-policy="LRU" max-size-policy="ENTRY_COUNT" size="10000"/>
+            <max-size>10000</max-size>
             <max-idle-seconds>60</max-idle-seconds>
+            <eviction-policy>LRU</eviction-policy>
             <invalidate-on-change>true</invalidate-on-change>
         </near-cache>
     </map>

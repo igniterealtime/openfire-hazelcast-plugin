@@ -53,19 +53,17 @@ import org.slf4j.LoggerFactory;
 import org.xmpp.packet.JID;
 import org.xmpp.packet.Presence;
 
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.locks.Lock;
+import com.hazelcast.core.Cluster;
+import com.hazelcast.core.EntryEvent;
+import com.hazelcast.core.EntryEventType;
+import com.hazelcast.core.EntryListener;
+import com.hazelcast.core.LifecycleEvent;
+import com.hazelcast.core.LifecycleEvent.LifecycleState;
+import com.hazelcast.core.LifecycleListener;
+import com.hazelcast.core.Member;
+import com.hazelcast.core.MembershipEvent;
+import com.hazelcast.core.MembershipListener;
+import com.jivesoftware.util.cluster.HazelcastClusterNodeInfo;
 
 /**
  * ClusterListener reacts to membership changes in the cluster. It takes care of cleaning up the state
@@ -168,15 +166,10 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
                 Cache wrapped = ((CacheWrapper) cache).getWrappedCache();
                 if (wrapped instanceof ClusteredCache) {
                     ClusteredCache clusteredCache = (ClusteredCache) wrapped;
-                    for (Map.Entry<?, ?> entry : cache.entrySet()) {
-                        EntryEvent event = new EntryEvent<>(
-                            clusteredCache.map.getName(),
-                            cluster.getLocalMember(),
-                            EntryEventType.ADDED.getType(),
-                            entry.getKey(),
-                            null,
-                            entry.getValue());
-                        entryListener.entryAdded(event);
+                    for (Map.Entry entry : (Set<Map.Entry>) cache.entrySet()) {
+                        EntryEvent event = new EntryEvent(clusteredCache.map.getName(), cluster.getLocalMember(), 
+                        		EntryEventType.ADDED.getType(), entry.getKey(), null, entry.getValue());
+                        EntryListener.entryAdded(event);
                     }
                 }
             }
@@ -599,13 +592,15 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
         }
     }
 
-    private synchronized void joinCluster() {
-        if (!isDone()) { // already joined
-            return;
-        }
+	private synchronized void joinCluster() {
+		if (!isDone()) { // already joined
+			return;
+		}
+		// Trigger events
+        ClusterManager.fireJoinedCluster(false);
         addEntryListener(C2SCache, new CacheListener(this, C2SCache.getName()));
         addEntryListener(anonymousC2SCache, new CacheListener(this, anonymousC2SCache.getName()));
-        addEntryListener(S2SCache, new S2SCacheListener());
+        addEntryListener(S2SCache, new CacheListener(this, S2SCache.getName()));
         addEntryListener(componentsCache, new ComponentCacheListener());
 
         addEntryListener(sessionInfoCache, new CacheListener(this, sessionInfoCache.getName()));
@@ -626,13 +621,9 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
         simulateCacheInserts(incomingServerSessionsCache);
         simulateCacheInserts(directedPresencesCache);
 
-        // Trigger events
-        clusterMember = true;
-        seniorClusterMember = isSeniorClusterMember();
-
-        ClusterManager.fireJoinedCluster(false);
-
-        if (seniorClusterMember) {
+        
+        if (CacheFactory.isSeniorClusterMember()) {
+            seniorClusterMember = true;
             ClusterManager.fireMarkedAsSeniorClusterMember();
         }
         logger.info("Joined cluster as node: " + cluster.getLocalMember().getUuid() + ". Senior Member: " +
