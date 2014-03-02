@@ -1,4 +1,7 @@
-/*
+/**
+ * $Revision: $
+ * $Date: $
+ *
  * Copyright (C) 2007-2009 Jive Software. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,7 +17,7 @@
  * limitations under the License.
  */
 
-package org.jivesoftware.openfire.plugin.session;
+package com.jivesoftware.openfire.session;
 
 import org.dom4j.Element;
 import org.dom4j.tree.DefaultElement;
@@ -43,10 +46,6 @@ import java.io.ObjectOutput;
 public class RemoteClientSession extends RemoteSession implements ClientSession {
 
     private long initialized = -1;
-
-    private boolean messageCarbonsEnabled;
-
-    private boolean hasRequestedBlocklist;
 
     public RemoteClientSession(byte[] nodeID, JID address) {
         super(nodeID, address);
@@ -97,8 +96,7 @@ public class RemoteClientSession extends RemoteSession implements ClientSession 
             }
             else {
                 ClusterTask task = getRemoteSessionTask(RemoteSessionTask.Operation.isInitialized);
-                Object result = doSynchronousClusterTask(task);
-                initialized = result != null && (Boolean) result ? 1 : 0;
+                initialized = (Boolean) doSynchronousClusterTask(task) ? 1 : 0;
             }
         }
         return initialized == 1;
@@ -133,9 +131,8 @@ public class RemoteClientSession extends RemoteSession implements ClientSession 
         ClientSessionInfo sessionInfo = cache.get(getAddress().toString());
         if (sessionInfo != null) {
             return sessionInfo.getPresence();
-        }
-        // this can happen if a cluster node becomes unreachable
-        return new Presence(Presence.Type.unavailable);
+            }
+        return null;
     }
 
     public void setPresence(Presence presence) {
@@ -155,39 +152,6 @@ public class RemoteClientSession extends RemoteSession implements ClientSession 
         ClusterTask task = getRemoteSessionTask(RemoteSessionTask.Operation.incrementConflictCount);
         Object result = doSynchronousClusterTask(task);
         return result == null ? 0 : (Integer) result;
-    }
-
-    @Override
-    public boolean isMessageCarbonsEnabled() {
-        return messageCarbonsEnabled;
-    }
-
-    @Override
-    public void setMessageCarbonsEnabled(boolean enabled) {
-        this.messageCarbonsEnabled = enabled;
-    }
-
-    @Override
-    public boolean hasRequestedBlocklist()
-    {
-        // After it's determined that a session has requested a blocklist, this value will never revert back to false.
-        // It's safe to skip the remote operation here.
-        if (hasRequestedBlocklist) {
-            return true;
-        }
-
-        final ClusterTask task = getRemoteSessionTask(RemoteSessionTask.Operation.hasRequestedBlocklist);
-        final Object result = doSynchronousClusterTask(task);
-        hasRequestedBlocklist = result != null && (Boolean) result;
-
-        return hasRequestedBlocklist;
-    }
-
-    @Override
-    public void setHasRequestedBlocklist( final boolean hasRequestedBlocklist )
-    {
-        // This is suspicious. Why would this be called on a non-local client session?
-        this.hasRequestedBlocklist = hasRequestedBlocklist;
     }
 
     RemoteSessionTask getRemoteSessionTask(RemoteSessionTask.Operation operation) {
