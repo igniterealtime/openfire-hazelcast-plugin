@@ -463,8 +463,7 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
             }
         }
 
-        @Override
-        public void entryRemoved(EntryEvent<String, Collection<DirectedPresence>> event) {
+        public void entryRemoved(EntryEvent event) {
             if (event == null || (event.getValue() == null && event.getOldValue() == null)) {
                 // Nothing to remove
                 return;
