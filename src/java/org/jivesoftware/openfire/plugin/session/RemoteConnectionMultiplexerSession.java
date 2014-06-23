@@ -1,4 +1,7 @@
-/*
+/**
+ * $Revision: $
+ * $Date: $
+ *
  * Copyright (C) 2007-2009 Jive Software. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,7 +17,7 @@
  * limitations under the License.
  */
 
-package org.jivesoftware.openfire.plugin.session;
+package com.jivesoftware.openfire.session;
 
 import org.jivesoftware.openfire.session.ConnectionMultiplexerSession;
 import org.jivesoftware.util.cache.ClusterTask;
@@ -30,6 +33,10 @@ public class RemoteConnectionMultiplexerSession extends RemoteSession implements
 
     public RemoteConnectionMultiplexerSession(byte[] nodeID, JID address) {
         super(nodeID, address);
+    }
+
+    public String getCipherSuiteName() {
+        return "NONE";
     }
 
     RemoteSessionTask getRemoteSessionTask(RemoteSessionTask.Operation operation) {
