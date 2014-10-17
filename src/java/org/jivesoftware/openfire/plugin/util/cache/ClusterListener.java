@@ -60,7 +60,9 @@ import com.hazelcast.core.EntryListener;
 import com.hazelcast.core.LifecycleEvent;
 import com.hazelcast.core.LifecycleEvent.LifecycleState;
 import com.hazelcast.core.LifecycleListener;
+import com.hazelcast.core.MapEvent;
 import com.hazelcast.core.Member;
+import com.hazelcast.core.MemberAttributeEvent;
 import com.hazelcast.core.MembershipEvent;
 import com.hazelcast.core.MembershipListener;
 import com.jivesoftware.util.cluster.HazelcastClusterNodeInfo;
@@ -496,28 +498,27 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
             return Collections.emptySet();
         }
 
-        @Override
-        public void entryEvicted(EntryEvent<String, Collection<DirectedPresence>> event) {
-            entryRemoved(event);
-        }
+		public void entryEvicted(EntryEvent event) {
+			entryRemoved(event);
+		}
 
-        private void mapClearedOrEvicted(MapEvent event) {
-            NodeID nodeID = NodeID.getInstance(event.getMember().getUuid().getBytes(StandardCharsets.UTF_8));
-            // ignore events which were triggered by this node
-            if (!XMPPServer.getInstance().getNodeID().equals(nodeID)) {
-                nodePresences.get(nodeID).clear();
-            }
-        }
+		private void mapClearedOrEvicted(MapEvent event) {
+	        NodeID nodeID = NodeID.getInstance(StringUtils.getBytes(event.getMember().getUuid()));
+	        // ignore events which were triggered by this node
+	        if (!XMPPServer.getInstance().getNodeID().equals(nodeID)) {
+				nodePresences.get(nodeID).clear();
+	        }
+		}
+		
+		@Override
+		public void mapEvicted(MapEvent event) {
+			mapClearedOrEvicted(event);
+		}
 
-        @Override
-        public void mapEvicted(MapEvent event) {
-            mapClearedOrEvicted(event);
-        }
-
-        @Override
-        public void mapCleared(MapEvent event) {
-            mapClearedOrEvicted(event);
-        }
+		@Override
+		public void mapCleared(MapEvent event) {
+			mapClearedOrEvicted(event);
+		}
     }
 
     /**
@@ -566,29 +567,28 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
             }
         }
 
-        @Override
-        public void entryEvicted(EntryEvent<String, Set<NodeID>> event) {
-            entryRemoved(event);
-        }
+		public void entryEvicted(EntryEvent event) {
+			entryRemoved(event);
+		}
 
-        private void mapClearedOrEvicted(MapEvent event) {
-            NodeID nodeID = NodeID.getInstance(event.getMember().getUuid().getBytes(StandardCharsets.UTF_8));
-            // ignore events which were triggered by this node
-            if (!XMPPServer.getInstance().getNodeID().equals(nodeID)) {
-                Set<String> sessionJIDs = lookupJIDList(nodeID, componentsCache.getName());
-                sessionJIDs.clear();
-            }
-        }
+		private void mapClearedOrEvicted(MapEvent event) {
+	        NodeID nodeID = NodeID.getInstance(StringUtils.getBytes(event.getMember().getUuid()));
+	        // ignore events which were triggered by this node
+	        if (!XMPPServer.getInstance().getNodeID().equals(nodeID)) {
+				Set<String> sessionJIDs = lookupJIDList(nodeID, componentsCache.getName());
+				sessionJIDs.clear();
+	        }
+		}
+		
+		@Override
+		public void mapEvicted(MapEvent event) {
+			mapClearedOrEvicted(event);
+		}
 
-        @Override
-        public void mapEvicted(MapEvent event) {
-            mapClearedOrEvicted(event);
-        }
-
-        @Override
-        public void mapCleared(MapEvent event) {
-            mapClearedOrEvicted(event);
-        }
+		@Override
+		public void mapCleared(MapEvent event) {
+			mapClearedOrEvicted(event);
+		}
     }
 
 	private synchronized void joinCluster() {
@@ -709,92 +709,24 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
         // Delete nodeID instance (release from memory)
         NodeID.deleteInstance(nodeID);
         clusterNodesInfo.remove(event.getMember().getUuid()); 
-    }
-    
-    public List<ClusterNodeInfo> getClusterNodesInfo() {
-        return new ArrayList<>(clusterNodesInfo.values());
-    }
+	}
+	
+	public List<ClusterNodeInfo> getClusterNodesInfo() {
+		return new ArrayList<ClusterNodeInfo>(clusterNodesInfo.values());
+	}
 
-    @Override
-    public void stateChanged(LifecycleEvent event) {
-        if (event.getState().equals(LifecycleState.SHUTDOWN)) {
-            leaveCluster();
-        } else if (event.getState().equals(LifecycleState.STARTED)) {
-            joinCluster();
-        }
-    }
+	public void stateChanged(LifecycleEvent event) {
+		if (event.getState().equals(LifecycleState.SHUTDOWN)) {
+			leaveCluster();
+		} else if (event.getState().equals(LifecycleState.STARTED)) {
+			joinCluster();
+		}
+	}
 
-    @Override
-    public void memberAttributeChanged(MemberAttributeEvent event) {
-        ClusterNodeInfo priorNodeInfo = clusterNodesInfo.get(event.getMember().getUuid());
+	@Override
+	public void memberAttributeChanged(MemberAttributeEvent event) {
+		ClusterNodeInfo priorNodeInfo = clusterNodesInfo.get(event.getMember().getUuid());
         clusterNodesInfo.put(event.getMember().getUuid(), 
-                new HazelcastClusterNodeInfo(event.getMember(), priorNodeInfo.getJoinedTime()));
-    }
-
-    class S2SCacheListener implements EntryListener<DomainPair, byte[]> {
-        S2SCacheListener() {
-        }
-
-        @Override
-        public void entryAdded(EntryEvent<DomainPair, byte[]> event) {
-            handleEntryEvent(event, false);
-        }
-
-        @Override
-        public void entryUpdated(EntryEvent<DomainPair, byte[]> event) {
-            handleEntryEvent(event, false);
-        }
-
-        @Override
-        public void entryRemoved(EntryEvent<DomainPair, byte[]> event) {
-            handleEntryEvent(event, true);
-        }
-
-        @Override
-        public void entryEvicted(EntryEvent<DomainPair, byte[]> event) {
-            handleEntryEvent(event, true);
-        }
-
-        private void handleEntryEvent(EntryEvent<DomainPair, byte[]> event, boolean removal) {
-            NodeID nodeID = NodeID.getInstance(event.getMember().getUuid().getBytes(StandardCharsets.UTF_8));
-            // ignore events which were triggered by this node
-            if (!XMPPServer.getInstance().getNodeID().equals(nodeID)) {
-                Set<DomainPair> sessionJIDS = nodeRoutes.get(nodeID);
-                if (sessionJIDS == null) {
-                    sessionJIDS = new HashSet<>();
-                }
-                if (removal) {
-                    sessionJIDS.remove(event.getKey());
-                } else {
-                    sessionJIDS.add(event.getKey());
-                }
-            }
-        }
-
-        private void handleMapEvent(MapEvent event) {
-            NodeID nodeID = NodeID.getInstance(event.getMember().getUuid().getBytes(StandardCharsets.UTF_8));
-            // ignore events which were triggered by this node
-            if (!XMPPServer.getInstance().getNodeID().equals(nodeID)) {
-                Set<DomainPair> sessionJIDS = nodeRoutes.get(nodeID);
-                if (sessionJIDS != null) {
-                    sessionJIDS.clear();
-                }
-            }
-        }
-
-        @Override
-        public void mapCleared(MapEvent event) {
-            handleMapEvent(event);
-        }
-
-        @Override
-        public void mapEvicted(MapEvent event) {
-            handleMapEvent(event);
-        }
-
-    }
-
-    boolean isClusterMember() {
-        return clusterMember;
-    }
+        		new HazelcastClusterNodeInfo(event.getMember(), priorNodeInfo.getJoinedTime()));
+	}
 }

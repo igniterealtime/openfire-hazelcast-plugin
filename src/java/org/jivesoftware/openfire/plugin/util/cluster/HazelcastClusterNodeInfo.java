@@ -1,4 +1,7 @@
-/*
+/**
+ * $Revision$
+ * $Date$
+ *
  * Copyright (C) 1999-2009 Jive Software. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,7 +17,7 @@
  * limitations under the License.
  */
 
-package org.jivesoftware.openfire.plugin.util.cluster;
+package com.jivesoftware.util.cluster;
 
 import org.jivesoftware.openfire.cluster.ClusterManager;
 import org.jivesoftware.openfire.cluster.ClusterNodeInfo;
@@ -41,7 +44,7 @@ public class HazelcastClusterNodeInfo implements ClusterNodeInfo {
     }
 
     public HazelcastClusterNodeInfo(Member member, Long joinedTime) {
-        hostname = member.getSocketAddress().getHostString();
+        hostname = member.getSocketAddress().getHostName();
         nodeID = NodeID.getInstance(StringUtils.getBytes(member.getUuid()));
         this.joinedTime = joinedTime;
         seniorMember = ClusterManager.getSeniorClusterMember().equals(StringUtils.getBytes(member.getUuid()));

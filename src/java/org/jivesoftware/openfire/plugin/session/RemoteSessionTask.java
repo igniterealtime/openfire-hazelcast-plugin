@@ -1,4 +1,7 @@
-/*
+/**
+ * $Revision: $
+ * $Date: $
+ *
  * Copyright (C) 2007-2009 Jive Software. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,7 +17,7 @@
  * limitations under the License.
  */
 
-package org.jivesoftware.openfire.plugin.session;
+package com.jivesoftware.openfire.session;
 
 import org.jivesoftware.openfire.session.Session;
 import org.jivesoftware.util.Log;
@@ -34,7 +37,7 @@ import java.util.concurrent.TimeUnit;
  *
  * @author Gaston Dombiak
  */
-public abstract class RemoteSessionTask implements ClusterTask<Object> {
+public abstract class RemoteSessionTask implements ClusterTask {
     protected Object result;
     protected Operation operation;
 
@@ -53,7 +56,7 @@ public abstract class RemoteSessionTask implements ClusterTask<Object> {
 
     public void run() {
         if (operation == Operation.getStreamID) {
-            result = getSession().getStreamID();
+            result = getSession().getStreamID().getID();
         }
         else if (operation == Operation.getServerName) {
             result = getSession().getServerName();
@@ -72,9 +75,6 @@ public abstract class RemoteSessionTask implements ClusterTask<Object> {
         }
         else if (operation == Operation.getCipherSuiteName) {
             result = getSession().getCipherSuiteName();
-        }
-        else if (operation == Operation.getPeerCertificates) {
-            result = getSession().getPeerCertificates();
         }
         else if (operation == Operation.close) {
             // Run in another thread so we avoid blocking calls (in hazelcast) 
@@ -143,7 +143,6 @@ public abstract class RemoteSessionTask implements ClusterTask<Object> {
         getNumClientPackets,
         getNumServerPackets,
         getCipherSuiteName,
-        getPeerCertificates,
         close,
         isClosed,
         isSecure,
@@ -156,12 +155,12 @@ public abstract class RemoteSessionTask implements ClusterTask<Object> {
          */
         isInitialized,
         incrementConflictCount,
-        hasRequestedBlocklist,
         
         /**
          * Operations of outgoing server sessions
          */
-        getOutgoingDomainPairs,
+        getAuthenticatedDomains,
+        getHostnames,
         isUsingServerDialback,
 
         /**
