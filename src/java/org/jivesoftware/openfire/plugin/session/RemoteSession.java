@@ -188,15 +188,15 @@ public abstract class RemoteSession implements Session {
      * @return result of remote operation.
      */
     protected Object doSynchronousClusterTask(ClusterTask task) {
-        ClusterNodeInfo info = CacheFactory.getClusterNodeInfo(nodeID);
-        Object result = null;
-        if (info == null && task instanceof RemoteSessionTask) { // clean up invalid session
-            Session remoteSession = ((RemoteSessionTask)task).getSession();
-            if (remoteSession instanceof ClientSession) {
-                SessionManager.getInstance().removeSession(null, remoteSession.getAddress(), false, false);
-            }
-        } else {
-            result = (info == null) ? null : CacheFactory.doSynchronousClusterTask(task, nodeID);
+    	ClusterNodeInfo info = CacheFactory.getClusterNodeInfo(nodeID);
+    	Object result = null;
+    	if (info == null && task instanceof RemoteSessionTask) { // clean up invalid session
+    		Session remoteSession = ((RemoteSessionTask)task).getSession();
+    		if (remoteSession instanceof ClientSession) {
+            	SessionManager.getInstance().removeSession(null, remoteSession.getAddress(), false, false);
+    		}
+    	} else {
+        	result = (info == null) ? null : CacheFactory.doSynchronousClusterTask(task, nodeID);
         }
         return result;
     }
@@ -207,14 +207,34 @@ public abstract class RemoteSession implements Session {
      * @param task the task to be invoked on the specified cluster member.
      */
     protected void doClusterTask(ClusterTask task) {
-        ClusterNodeInfo info = CacheFactory.getClusterNodeInfo(nodeID);
-        if (info == null && task instanceof RemoteSessionTask) { // clean up invalid session
-            Session remoteSession = ((RemoteSessionTask)task).getSession();
-            if (remoteSession instanceof ClientSession) {
-                SessionManager.getInstance().removeSession(null, remoteSession.getAddress(), false, false);
-            }
-        } else {
-            CacheFactory.doClusterTask(task, nodeID);
+    	ClusterNodeInfo info = CacheFactory.getClusterNodeInfo(nodeID);
+    	if (info == null && task instanceof RemoteSessionTask) { // clean up invalid session
+    		Session remoteSession = ((RemoteSessionTask)task).getSession();
+    		if (remoteSession instanceof ClientSession) {
+            	SessionManager.getInstance().removeSession(null, remoteSession.getAddress(), false, false);
+    		}
+		} else {
+			CacheFactory.doClusterTask(task, nodeID);
+	    }
+    }
+
+    /**
+     * Simple implementation of the StreamID interface to hold the stream ID of
+     * the surrogated session.
+     */
+    protected static class BasicStreamID implements StreamID {
+        String id;
+
+        public BasicStreamID(String id) {
+            this.id = id;
+        }
+
+        public String getID() {
+            return id;
+        }
+
+        public String toString() {
+            return id;
         }
     }
 
