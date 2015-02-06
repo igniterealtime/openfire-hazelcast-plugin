@@ -1,4 +1,7 @@
-/*
+/**
+ * $Revision$
+ * $Date$
+ *
  * Copyright (C) 1999-2009 Jive Software. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -37,7 +40,7 @@ import org.xmpp.packet.Presence;
  *
  * @author Gaston Dombiak
  */
-public class RemotePacketExecution implements ClusterTask<Void> {
+public class RemotePacketExecution implements ClusterTask {
 
     private JID recipient;
     private Packet packet;
@@ -50,7 +53,7 @@ public class RemotePacketExecution implements ClusterTask<Void> {
         this.packet = packet;
     }
 
-    public Void getResult() {
+    public Object getResult() {
         return null;
     }
 
@@ -61,7 +64,7 @@ public class RemotePacketExecution implements ClusterTask<Void> {
     }
 
     public void writeExternal(ObjectOutput out) throws IOException {
-        ExternalizableUtil.getInstance().writeSerializable(out, recipient);
+    	ExternalizableUtil.getInstance().writeSerializable(out, recipient);
         if (packet instanceof IQ) {
             ExternalizableUtil.getInstance().writeInt(out, 1);
         }

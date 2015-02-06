@@ -17,7 +17,7 @@
  * limitations under the License.
  */
 
-package com.jivesoftware.openfire.session;
+package org.jivesoftware.openfire.plugin.session;
 
 import org.dom4j.Element;
 import org.dom4j.tree.DefaultElement;

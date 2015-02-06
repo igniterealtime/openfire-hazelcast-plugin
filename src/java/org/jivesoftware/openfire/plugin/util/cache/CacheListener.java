@@ -17,7 +17,7 @@
  * limitations under the License.
  */
 
-package com.jivesoftware.util.cache;
+package org.jivesoftware.openfire.plugin.util.cache;
 
 import java.util.Set;
 

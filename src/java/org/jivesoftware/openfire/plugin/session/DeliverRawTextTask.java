@@ -1,4 +1,7 @@
-/*
+/**
+ * $Revision: $
+ * $Date: $
+ *
  * Copyright (C) 2007-2009 Jive Software. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,11 +20,8 @@
 package org.jivesoftware.openfire.plugin.session;
 
 import org.jivesoftware.openfire.SessionManager;
-import org.jivesoftware.openfire.StreamID;
 import org.jivesoftware.openfire.XMPPServer;
-import org.jivesoftware.openfire.session.DomainPair;
 import org.jivesoftware.openfire.session.Session;
-import org.jivesoftware.openfire.spi.BasicStreamIDFactory;
 import org.jivesoftware.util.Log;
 import org.jivesoftware.util.cache.ClusterTask;
 import org.jivesoftware.util.cache.ExternalizableUtil;
@@ -36,10 +36,10 @@ import java.io.ObjectOutput;
  *
  * @author Gaston Dombiak
  */
-public class DeliverRawTextTask implements ClusterTask<Void> {
+public class DeliverRawTextTask implements ClusterTask {
     private SessionType sessionType;
     private JID address;
-    private StreamID streamID;
+    private String streamID;
     private String text;
 
     public DeliverRawTextTask() {
@@ -51,7 +51,6 @@ public class DeliverRawTextTask implements ClusterTask<Void> {
             this.sessionType = SessionType.client;
         }
         else if (remoteSession instanceof RemoteOutgoingServerSession) {
-            Log.error("OutgoingServerSession used with DeliverRawTextTask; should be using DeliverRawTextServerTask: " + remoteSession);
             this.sessionType = SessionType.outgoingServer;
         }
         else if (remoteSession instanceof RemoteComponentSession) {
@@ -67,13 +66,13 @@ public class DeliverRawTextTask implements ClusterTask<Void> {
         this.text = text;
     }
 
-    public DeliverRawTextTask(StreamID streamID, String text) {
+    public DeliverRawTextTask(String streamID, String text) {
         this.sessionType = SessionType.incomingServer;
         this.streamID = streamID;
         this.text = text;
     }
 
-    public Void getResult() {
+    public Object getResult() {
         return null;
     }
 
@@ -90,7 +89,7 @@ public class DeliverRawTextTask implements ClusterTask<Void> {
         }
         ExternalizableUtil.getInstance().writeBoolean(out, streamID != null);
         if (streamID != null) {
-            ExternalizableUtil.getInstance().writeSafeUTF( out, streamID.getID() );
+            ExternalizableUtil.getInstance().writeSafeUTF(out, streamID);
         }
     }
 
@@ -101,7 +100,7 @@ public class DeliverRawTextTask implements ClusterTask<Void> {
             address = (JID) ExternalizableUtil.getInstance().readSerializable(in);
         }
         if (ExternalizableUtil.getInstance().readBoolean(in)) {
-            streamID = BasicStreamIDFactory.createStreamID( ExternalizableUtil.getInstance().readSafeUTF(in) );
+            streamID = ExternalizableUtil.getInstance().readSafeUTF(in);
         }
     }
 
@@ -116,8 +115,7 @@ public class DeliverRawTextTask implements ClusterTask<Void> {
             return SessionManager.getInstance().getConnectionMultiplexerSession(address);
         }
         else if (sessionType == SessionType.outgoingServer) {
-            Log.error("Trying to write raw data to a server session across the cluster: " + address.toString());
-            return null;
+            return SessionManager.getInstance().getOutgoingServerSession(address.getDomain());
         }
         else if (sessionType == SessionType.incomingServer) {
             return SessionManager.getInstance().getIncomingServerSession(streamID);

@@ -15,6 +15,17 @@
  */
 package org.jivesoftware.openfire.plugin.util.cache;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.Lock;
+
 import com.hazelcast.core.Cluster;
 import com.hazelcast.core.EntryEvent;
 import com.hazelcast.core.EntryEventType;
@@ -65,7 +76,6 @@ import com.hazelcast.core.Member;
 import com.hazelcast.core.MemberAttributeEvent;
 import com.hazelcast.core.MembershipEvent;
 import com.hazelcast.core.MembershipListener;
-import com.jivesoftware.util.cluster.HazelcastClusterNodeInfo;
 
 /**
  * ClusterListener reacts to membership changes in the cluster. It takes care of cleaning up the state
@@ -477,13 +487,13 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
             }
         }
 
-        Collection<JID> getHandlers(EntryEvent<String, Collection<DirectedPresence>> event) {
-            Collection<DirectedPresence> value = event.getValue();
-            Collection<JID> answer = new ArrayList<>();
+        Collection<JID> getHandlers(EntryEvent event) {
+            Object value = event.getValue();
+            Collection<JID> answer = new ArrayList<JID>();
             if (value != null) {
-                for (DirectedPresence directedPresence : value) {
-                    answer.add(directedPresence.getHandler());
-                }
+	            for (DirectedPresence directedPresence : (Collection<DirectedPresence>)value) {
+	                answer.add(directedPresence.getHandler());
+	            }
             }
             return answer;
         }

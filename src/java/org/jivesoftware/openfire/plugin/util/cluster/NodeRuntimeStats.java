@@ -1,4 +1,7 @@
-/*
+/**
+ * $Revision$
+ * $Date$
+ *
  * Copyright (C) 1999-2009 Jive Software. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -35,11 +38,11 @@ import org.jivesoftware.util.cache.ExternalizableUtil;
  */
 public class NodeRuntimeStats {
 
-    // This properties file is located in the Hazelcast JAR
+	// This properties file is located in the Hazelcast JAR
     private static final ResourceBundle config = ResourceBundle.getBundle("hazelcast-runtime");
     
     public static String getProviderConfig(String key) {
-        return config.getString(key);
+    	return config.getString(key);
     }
 
     /**
@@ -51,29 +54,30 @@ public class NodeRuntimeStats {
     public static Map<NodeID, NodeInfo> getNodeInfo() {
 
         // Run cluster-wide stats query
-        Collection<NodeInfo> taskResult = CacheFactory.doSynchronousClusterTask(new NodeInfoTask(), true);
-        Map<NodeID, NodeInfo> result = new HashMap<>();
-        for (NodeInfo nodeInfo : taskResult) {
-            NodeID nodeId = NodeID.getInstance(nodeInfo.getNodeId());
-            result.put(nodeId, nodeInfo);
-        }
-        return result;
+    	Collection<Object> taskResult = CacheFactory.doSynchronousClusterTask(new NodeInfoTask(), true);
+    	Map<NodeID, NodeInfo> result = new HashMap<NodeID, NodeInfo>();
+    	for (Object tr : taskResult) {
+    		NodeInfo nodeInfo = (NodeInfo) tr;
+    		NodeID nodeId = NodeID.getInstance(nodeInfo.getNodeId());
+    		result.put(nodeId, nodeInfo);
+    	}
+    	return result;
     }
 
     /**
      * Clears the cache stats.
      */
     public static void clearCacheStats() {
-        // not supported
+    	// not supported
     }
 
     /**
      * Encapsulates statistics and information about a cluster node.
      */
-    public static class NodeInfoTask implements ClusterTask<NodeInfo> {
-        private NodeInfo result = null;
-        
-        public void run() {
+    public static class NodeInfoTask implements ClusterTask {
+    	private Object result = null;
+    	
+		public void run() {
             // Get runtime stats - mem and time:
             Runtime runtime = Runtime.getRuntime();
             long free = runtime.freeMemory();
@@ -82,18 +86,18 @@ public class NodeRuntimeStats {
             long time = System.currentTimeMillis();
 
             result = new NodeInfo(CacheFactory.getClusterMemberID(), free, total, max, time);
-        }
+		}
 
-        public void writeExternal(ObjectOutput out) throws IOException {
-            ExternalizableUtil.getInstance().writeSerializable(out, result);
-        }
-        
-        public void readExternal(ObjectInput in) throws IOException {
-            result = (NodeInfo) ExternalizableUtil.getInstance().readSerializable(in);
-        }
+		public void writeExternal(ObjectOutput out) throws IOException {
+			ExternalizableUtil.getInstance().writeSerializable(out, (NodeInfo) result);
+		}
+		
+		public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
+			result = ExternalizableUtil.getInstance().readSerializable(in);
+		}
 
-        public NodeInfo getResult() { return result; }
-        
+		public Object getResult() { return result; }
+    	
     }
 
     /**
@@ -109,7 +113,7 @@ public class NodeRuntimeStats {
 
         NodeInfo(byte[] nodeId, long freeMem, long totalMem, long maxMem, long time)
         {
-            this.nodeId = nodeId;
+        	this.nodeId = nodeId;
             this.freeMem = freeMem;
             this.totalMem = totalMem;
             this.maxMem = maxMem;

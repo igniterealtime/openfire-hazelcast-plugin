@@ -1,4 +1,7 @@
-/*
+/**
+ * $Revision: $
+ * $Date: $
+ *
  * Copyright (C) 2007-2009 Jive Software. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,7 +20,6 @@
 package org.jivesoftware.openfire.plugin.session;
 
 import org.jivesoftware.openfire.SessionManager;
-import org.jivesoftware.openfire.session.DomainPair;
 import org.jivesoftware.openfire.session.OutgoingServerSession;
 import org.jivesoftware.openfire.session.Session;
 import org.jivesoftware.util.cache.ExternalizableUtil;
@@ -34,24 +36,27 @@ import java.io.ObjectOutput;
  * @author Gaston Dombiak
  */
 public class OutgoingServerSessionTask extends RemoteSessionTask {
-    private DomainPair address;
+    private JID address;
 
     public OutgoingServerSessionTask() {
     }
 
-    protected OutgoingServerSessionTask(DomainPair address, Operation operation) {
+    protected OutgoingServerSessionTask(JID address, Operation operation) {
         super(operation);
         this.address = address;
     }
 
     Session getSession() {
-        return SessionManager.getInstance().getOutgoingServerSession(address);
+        return SessionManager.getInstance().getOutgoingServerSession(address.getDomain());
     }
 
     public void run() {
         super.run();
-        if (operation == Operation.getOutgoingDomainPairs) {
-            result = ((OutgoingServerSession) getSession()).getOutgoingDomainPairs();
+        if (operation == Operation.getAuthenticatedDomains) {
+            result = ((OutgoingServerSession) getSession()).getAuthenticatedDomains();
+        }
+        else if (operation == Operation.getHostnames) {
+            result = ((OutgoingServerSession) getSession()).getHostnames();
         }
         else if (operation == Operation.isUsingServerDialback) {
             result = ((OutgoingServerSession) getSession()).isUsingServerDialback();
@@ -65,7 +70,7 @@ public class OutgoingServerSessionTask extends RemoteSessionTask {
 
     public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
         super.readExternal(in);
-        address = (DomainPair) ExternalizableUtil.getInstance().readSerializable(in);
+        address = (JID) ExternalizableUtil.getInstance().readSerializable(in);
     }
 
     public String toString() {

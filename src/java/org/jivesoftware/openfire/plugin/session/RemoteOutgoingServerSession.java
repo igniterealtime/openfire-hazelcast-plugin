@@ -17,7 +17,7 @@
  * limitations under the License.
  */
 
-package com.jivesoftware.openfire.session;
+package org.jivesoftware.openfire.plugin.session;
 
 import org.jivesoftware.openfire.session.OutgoingServerSession;
 import org.jivesoftware.util.cache.ClusterTask;

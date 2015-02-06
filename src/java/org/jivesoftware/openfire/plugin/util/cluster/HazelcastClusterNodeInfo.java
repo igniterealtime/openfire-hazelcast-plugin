@@ -17,7 +17,7 @@
  * limitations under the License.
  */
 
-package com.jivesoftware.util.cluster;
+package org.jivesoftware.openfire.plugin.util.cluster;
 
 import org.jivesoftware.openfire.cluster.ClusterManager;
 import org.jivesoftware.openfire.cluster.ClusterNodeInfo;

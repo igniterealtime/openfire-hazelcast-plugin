@@ -16,7 +16,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.jivesoftware.util.cache;
+package org.jivesoftware.openfire.plugin.util.cache;
 
 import java.util.Collection;
 import java.util.HashMap;
