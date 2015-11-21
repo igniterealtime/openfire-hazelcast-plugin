@@ -223,6 +223,11 @@ public abstract class RemoteSession implements Session {
 	    }
     }
 
+    @Override
+    public final Locale getLanguage() {
+        return Locale.getDefault();
+    }
+
     /**
      * Simple implementation of the StreamID interface to hold the stream ID of
      * the surrogated session.
