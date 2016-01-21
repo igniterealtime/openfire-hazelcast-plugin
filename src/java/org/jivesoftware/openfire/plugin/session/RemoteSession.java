@@ -217,29 +217,4 @@ public abstract class RemoteSession implements Session {
     public final Locale getLanguage() {
         return Locale.getDefault();
     }
-
-    /**
-     * Simple implementation of the StreamID interface to hold the stream ID of
-     * the surrogated session.
-     */
-    protected static class BasicStreamID implements StreamID {
-        String id;
-
-        public BasicStreamID(String id) {
-            this.id = id;
-        }
-
-        public String getID() {
-            return id;
-        }
-
-        public String toString() {
-            return id;
-        }
-    }
-
-    @Override
-    public final Locale getLanguage() {
-        return Locale.getDefault();
-    }
 }
