@@ -125,16 +125,6 @@ public abstract class RemoteSession implements Session {
         return (Certificate[]) doSynchronousClusterTask(task);
     }
 
-    public String getCipherSuiteName() {
-        ClusterTask task = getRemoteSessionTask(RemoteSessionTask.Operation.getCipherSuiteName);
-        return (String) doSynchronousClusterTask(task);
-    }
-
-    public Certificate[] getPeerCertificates() {
-        ClusterTask task = getRemoteSessionTask(RemoteSessionTask.Operation.getPeerCertificates);
-        return (Certificate[]) doSynchronousClusterTask(task);
-    }
-
     public void process(Packet packet) {
         doClusterTask(getProcessPacketTask(packet));
     }
