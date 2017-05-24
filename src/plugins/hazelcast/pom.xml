@@ -11,7 +11,7 @@
     <name>Hazelcast Plugin</name>
 
     <build>
-        <sourceDirectory>../../src/plugins/hazelcast/src/java</sourceDirectory>
+        <sourceDirectory>src/java</sourceDirectory>
         <plugins>
             <plugin>
                 <artifactId>maven-assembly-plugin</artifactId>
