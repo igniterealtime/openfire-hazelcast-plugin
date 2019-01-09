@@ -146,7 +146,6 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
 
         directedPresencesCache = CacheFactory.createCache(PresenceUpdateHandler.PRESENCE_CACHE_NAME);
 
-        joinCluster();
     }
 
     private void addEntryListener(Cache<?, ?> cache, EntryListener listener) {
@@ -230,7 +229,7 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
         return allLists;
     }
 
-    public boolean isDone() {
+    private boolean isDone() {
         return done;
     }
 
@@ -599,7 +598,7 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
         }
     }
 
-    private synchronized void joinCluster() {
+    synchronized void joinCluster() {
         if (!isDone()) { // already joined
             return;
         }
@@ -721,6 +720,7 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
         clusterNodesInfo.remove(event.getMember().getUuid()); 
     }
     
+    @SuppressWarnings("WeakerAccess")
     public List<ClusterNodeInfo> getClusterNodesInfo() {
         return new ArrayList<>(clusterNodesInfo.values());
     }
