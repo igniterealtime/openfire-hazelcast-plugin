@@ -148,6 +148,7 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
                 XMPPServer.getInstance().setNodeID(NodeID.getInstance(getClusterMemberID()));
                 // CacheFactory is now using clustered caches. We can add our listeners.
                 clusterListener = new ClusterListener(cluster);
+                clusterListener.joinCluster();
                 lifecycleListener = hazelcast.getLifecycleService().addLifecycleListener(clusterListener);
                 membershipListener = cluster.addMembershipListener(clusterListener);
                 logger.info("Hazelcast clustering started");
@@ -281,7 +282,7 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
 
     @Override
     public List<ClusterNodeInfo> getClusterNodesInfo() {
-        return clusterListener == null ? Collections.<ClusterNodeInfo>emptyList() : clusterListener.getClusterNodesInfo();
+        return clusterListener == null ? Collections.emptyList() : clusterListener.getClusterNodesInfo();
     }
 
     @Override

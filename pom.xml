@@ -12,6 +12,15 @@
     <name>Hazelcast Plugin</name>
     <description>Adds clustering support</description>
 
+    <repositories>
+        <!-- Where we obtain dependencies. -->
+        <repository>
+            <id>igniterealtime</id>
+            <name>Ignite Realtime Repository</name>
+            <url>https://igniterealtime.org/archiva/repository/maven/</url>
+        </repository>
+    </repositories>
+
     <developers>
         <developer>
             <name>Tom Evans</name>
