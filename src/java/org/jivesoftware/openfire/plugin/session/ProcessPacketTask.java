@@ -24,9 +24,10 @@ import org.jivesoftware.openfire.XMPPServer;
 import org.jivesoftware.openfire.session.DomainPair;
 import org.jivesoftware.openfire.session.Session;
 import org.jivesoftware.openfire.spi.BasicStreamIDFactory;
-import org.jivesoftware.util.Log;
 import org.jivesoftware.util.cache.ClusterTask;
 import org.jivesoftware.util.cache.ExternalizableUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.xmpp.packet.*;
 
 import java.io.IOException;
@@ -39,6 +40,8 @@ import java.io.ObjectOutput;
  * @author Gaston Dombiak
  */
 public class ProcessPacketTask implements ClusterTask<Void> {
+    private static final Logger Log = LoggerFactory.getLogger(ProcessPacketTask.class);
+
     private SessionType sessionType;
     private JID address;
     private StreamID streamID;
@@ -48,7 +51,7 @@ public class ProcessPacketTask implements ClusterTask<Void> {
         super();
     }
 
-    protected ProcessPacketTask(RemoteSession remoteSession, JID address, Packet packet) {
+    ProcessPacketTask(RemoteSession remoteSession, JID address, Packet packet) {
         if (remoteSession instanceof RemoteClientSession) {
             this.sessionType = SessionType.client;
         }
@@ -68,7 +71,7 @@ public class ProcessPacketTask implements ClusterTask<Void> {
         this.packet = packet;
     }
 
-    protected ProcessPacketTask(StreamID streamID, Packet packet) {
+    ProcessPacketTask(StreamID streamID, Packet packet) {
         this.sessionType = SessionType.incomingServer;
         this.streamID = streamID;
         this.packet = packet;
@@ -102,7 +105,7 @@ public class ProcessPacketTask implements ClusterTask<Void> {
         ExternalizableUtil.getInstance().writeSerializable(out, (DefaultElement) packet.getElement());
     }
 
-    public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
+    public void readExternal(ObjectInput in) throws IOException {
         if (ExternalizableUtil.getInstance().readBoolean(in)) {
             address = (JID) ExternalizableUtil.getInstance().readSerializable(in);
         }

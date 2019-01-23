@@ -20,9 +20,10 @@ import org.dom4j.Element;
 import org.dom4j.tree.DefaultElement;
 import org.jivesoftware.openfire.component.InternalComponentManager;
 import org.jivesoftware.openfire.session.ComponentSession;
-import org.jivesoftware.util.Log;
 import org.jivesoftware.util.cache.ClusterTask;
 import org.jivesoftware.util.cache.ExternalizableUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.xmpp.component.ComponentException;
 import org.xmpp.component.ComponentManager;
 import org.xmpp.packet.*;
@@ -38,10 +39,11 @@ import java.util.Collection;
  * @author Gaston Dombiak
  */
 public class RemoteComponentSession extends RemoteSession implements ComponentSession {
+    private static final Logger Log = LoggerFactory.getLogger(RemoteComponentSession.class);
 
     private ExternalComponent component;
 
-    public RemoteComponentSession(byte[] nodeID, JID address) {
+    RemoteComponentSession(byte[] nodeID, JID address) {
         super(nodeID, address);
         component = new RemoteExternalComponent(address);
     }
@@ -65,7 +67,7 @@ public class RemoteComponentSession extends RemoteSession implements ComponentSe
     private class RemoteExternalComponent implements ExternalComponent {
         private JID address;
 
-        public RemoteExternalComponent(JID address) {
+        RemoteExternalComponent(JID address) {
             this.address = address;
         }
 
@@ -100,6 +102,7 @@ public class RemoteComponentSession extends RemoteSession implements ComponentSe
             return (String) doSynchronousClusterTask(task);
         }
 
+        @SuppressWarnings("unchecked")
         public Collection<String> getSubdomains() {
             ClusterTask task = new ComponentSessionTask(address, RemoteSessionTask.Operation.getSubdomains);
             return (Collection<String>) doSynchronousClusterTask(task);
@@ -120,7 +123,7 @@ public class RemoteComponentSession extends RemoteSession implements ComponentSe
             doClusterTask(task);
         }
 
-        public void initialize(JID jid, ComponentManager componentManager) throws ComponentException {
+        public void initialize(JID jid, ComponentManager componentManager) {
             RemoteSessionTask task = new InitializeTask(address, jid);
             doClusterTask(task);
         }
@@ -144,7 +147,7 @@ public class RemoteComponentSession extends RemoteSession implements ComponentSe
             super();
         }
 
-        protected SetterTask(JID address, Type type, String value) {
+        SetterTask(JID address, Type type, String value) {
             super(address, null);
             this.type = type;
             this.value = value;
@@ -177,7 +180,7 @@ public class RemoteComponentSession extends RemoteSession implements ComponentSe
             }
         }
 
-        private static enum Type {
+        private enum Type {
             name,
             type,
             catergory
@@ -191,7 +194,7 @@ public class RemoteComponentSession extends RemoteSession implements ComponentSe
             super();
         }
 
-        protected ProcessComponentPacketTask(JID address, Packet packet) {
+        ProcessComponentPacketTask(JID address, Packet packet) {
             super(address, null);
             this.packet = packet;
         }
@@ -237,7 +240,7 @@ public class RemoteComponentSession extends RemoteSession implements ComponentSe
             super();
         }
 
-        protected InitializeTask(JID address, JID componentJID) {
+        InitializeTask(JID address, JID componentJID) {
             super(address, null);
             this.componentJID = componentJID;
         }
