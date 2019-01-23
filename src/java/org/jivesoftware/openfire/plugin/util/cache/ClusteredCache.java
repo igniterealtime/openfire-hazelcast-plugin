@@ -27,8 +27,8 @@ import org.jivesoftware.util.cache.CacheFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.hazelcast.core.EntryListener;
 import com.hazelcast.core.IMap;
+import com.hazelcast.map.listener.MapListener;
 import com.hazelcast.monitor.LocalMapStats;
 
 /**
@@ -48,7 +48,6 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
     private final int hazelcastLifetimeInSeconds;
     private String name;
     private long numberOfGets = 0;
-    private Map<? extends K, ? extends V> entries;
 
     /**
      * Create a new cache using the supplied named cache as the actual cache implementation
@@ -63,7 +62,7 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
         this.name = name;
     }
 
-    void addEntryListener(EntryListener listener) {
+    void addEntryListener(MapListener listener) {
         listeners.add(map.addEntryListener(listener, false));
     }
 
