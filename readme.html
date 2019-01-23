@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
 
-<html>
+<html lang="en">
 <head>
     <title>Hazelcast Clustering Plugin Readme</title>
     <style type="text/css">
@@ -62,7 +62,7 @@ open source <a href="http://www.hazelcast.org">Hazelcast In-Memory Data Grid</a>
 framework in lieu of an expensive proprietary third-party product.
 </p>
 <p>
-The current Hazelcast release is version 3.9.2.
+The current version of the plugin uses Hazelcast release 3.11.1
 </p>
 <h3>Clustering vs. Federation</h3>
 <p>XMPP is designed to scale in ways that are similar to email. Each Openfire
@@ -201,13 +201,13 @@ that will be added to the plugin's classpath. This allows a custom Hazelcast
 configuration file to be located outside the Openfire home directory.</li>
 <li><em>hazelcast.config.jmx.enabled</em> (false): Enables JMX support for
 the Hazelcast cluster if JMX has been enabled via the Openfire admin console.
-Refer to the <a href="http://docs.hazelcast.org/docs/3.9.2/manual/html-single/index.html#monitoring-with-jmx">
+Refer to the <a href="http://docs.hazelcast.org/docs/3.11.1/manual/html-single/index.html#monitoring-with-jmx">
 Hazelcast JMX docs</a> for additional information.</li>
 </ol>
 <em>Note:</em> The default <code>hazelcast-cache-config.xml</code> file included with the plugin will include a file
 <code>conf/hazelcast-local-config.xml</code> that will be preserved between plugin updates. It is recommended that
 local changes are kept in this file.
-<p>The Hazelcast plugin uses the <a href="http://docs.hazelcast.org/docs/3.9.2/manual/html-single/index.html#configuring-declaratively">
+<p>The Hazelcast plugin uses the <a href="http://docs.hazelcast.org/docs/3.11.1/manual/html-single/index.html#configuring-declaratively">
 XML configuration builder</a> to initialize the cluster from the XML file <code>conf/hazelcast-local-config.xml</code>.
 By default the cluster members will attempt to discover each other via UDP multicast at the
 following location:
@@ -232,7 +232,7 @@ following alternative:
 &lt;/join&gt;
 ...
 </pre>
-<p>Please refer to the <a href="http://docs.hazelcast.org/docs/3.9.2/manual/html-single/index.html">
+<p>Please refer to the <a href="http://docs.hazelcast.org/docs/3.11.1/manual/html-single/index.html">
 Hazelcast reference manual</a> for more information.
 </p>
 <h3>A Word About Garbage Collection</h3>
