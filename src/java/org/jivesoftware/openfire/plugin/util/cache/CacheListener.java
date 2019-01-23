@@ -16,11 +16,11 @@
 
 package org.jivesoftware.openfire.plugin.util.cache;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Set;
 
 import org.jivesoftware.openfire.XMPPServer;
 import org.jivesoftware.openfire.cluster.NodeID;
-import org.jivesoftware.util.StringUtils;
 
 import com.hazelcast.core.EntryEvent;
 import com.hazelcast.core.EntryListener;
@@ -37,10 +37,10 @@ import com.hazelcast.core.MapEvent;
  * @author Gaston Dombiak
  */
 class CacheListener implements EntryListener {
-    protected final String cacheName;
-    private ClusterListener clusterListener;
+    private final String cacheName;
+    private final ClusterListener clusterListener;
 
-    public CacheListener(ClusterListener clusterListener, String cacheName) {
+    CacheListener(final ClusterListener clusterListener, final String cacheName) {
         this.clusterListener = clusterListener;
         this.cacheName = cacheName;
     }
@@ -61,11 +61,11 @@ class CacheListener implements EntryListener {
         handleEntryEvent(event, true);
     }
 
-    private void handleEntryEvent(EntryEvent event, boolean removal) {
-        NodeID nodeID = NodeID.getInstance(StringUtils.getBytes(event.getMember().getUuid()));
+    private void handleEntryEvent(final EntryEvent event, final boolean removal) {
+        final NodeID nodeID = NodeID.getInstance(event.getMember().getUuid().getBytes(StandardCharsets.UTF_8));
         // ignore events which were triggered by this node
         if (!XMPPServer.getInstance().getNodeID().equals(nodeID)) {
-            Set<String> sessionJIDS = clusterListener.lookupJIDList(nodeID, cacheName);
+            final Set<String> sessionJIDS = clusterListener.lookupJIDList(nodeID, cacheName);
             if (removal) {
                 sessionJIDS.remove(event.getKey().toString());
             }
@@ -75,22 +75,22 @@ class CacheListener implements EntryListener {
         }
     }
 
-    private void handleMapEvent(MapEvent event) {
-        NodeID nodeID = NodeID.getInstance(StringUtils.getBytes(event.getMember().getUuid()));
+    private void handleMapEvent(final MapEvent event) {
+        final NodeID nodeID = NodeID.getInstance(event.getMember().getUuid().getBytes(StandardCharsets.UTF_8));
         // ignore events which were triggered by this node
         if (!XMPPServer.getInstance().getNodeID().equals(nodeID)) {
-            Set<String> sessionJIDs = clusterListener.lookupJIDList(nodeID, cacheName);
+            final Set<String> sessionJIDs = clusterListener.lookupJIDList(nodeID, cacheName);
             sessionJIDs.clear();
         }
     }
 
     @Override
-    public void mapCleared(MapEvent event) {
+    public void mapCleared(final MapEvent event) {
         handleMapEvent(event);
     }
 
     @Override
-    public void mapEvicted(MapEvent event) {
+    public void mapEvicted(final MapEvent event) {
         handleMapEvent(event);
     }
 
