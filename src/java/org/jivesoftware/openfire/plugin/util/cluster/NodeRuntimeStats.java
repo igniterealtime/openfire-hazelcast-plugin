@@ -23,7 +23,6 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.ResourceBundle;
 
 import org.jivesoftware.openfire.cluster.NodeID;
 import org.jivesoftware.util.cache.CacheFactory;
@@ -34,13 +33,6 @@ import org.jivesoftware.util.cache.ExternalizableUtil;
  * A utility class which helps to gather Hazelcast stats and information.
  */
 public class NodeRuntimeStats {
-
-    // This properties file is located in the Hazelcast JAR
-    private static final ResourceBundle config = ResourceBundle.getBundle("hazelcast-runtime");
-    
-    public static String getProviderConfig(String key) {
-        return config.getString(key);
-    }
 
     /**
      * Returns a Map of HazelcastRuntimeStats.NodeInfo objects keyed by cluster Member objects.
