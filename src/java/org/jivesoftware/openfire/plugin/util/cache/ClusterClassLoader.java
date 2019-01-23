@@ -56,7 +56,7 @@ public class ClusterClassLoader extends ClassLoader {
 
     private PluginClassLoader hazelcastClassloader;
 
-    public ClusterClassLoader() {
+    ClusterClassLoader() {
         Plugin plugin = XMPPServer.getInstance().getPluginManager().getPlugin("hazelcast");
         hazelcastClassloader = XMPPServer.getInstance().getPluginManager().getPluginClassloader(plugin);
         
@@ -77,7 +77,7 @@ public class ClusterClassLoader extends ClassLoader {
         catch (ClassNotFoundException e) {
             PluginManager pluginManager = XMPPServer.getInstance().getPluginManager();
             for (Plugin plugin : pluginManager.getPlugins()) {
-                String pluginName = pluginManager.getPluginDirectory(plugin).getName();
+                String pluginName = pluginManager.getPluginPath(plugin).toFile().getName();
                 if ("hazelcast".equals(pluginName) || "admin".equals(pluginName)) {
                     continue;
                 }
@@ -98,7 +98,7 @@ public class ClusterClassLoader extends ClassLoader {
         if (resource == null) {
             PluginManager pluginManager = XMPPServer.getInstance().getPluginManager();
             for (Plugin plugin : pluginManager.getPlugins()) {
-                String pluginName = pluginManager.getPluginDirectory(plugin).getName();
+                String pluginName = pluginManager.getPluginPath(plugin).toFile().getName();
                 if ("hazelcast".equals(pluginName) || "admin".equals(pluginName)) {
                     continue;
                 }
@@ -112,7 +112,7 @@ public class ClusterClassLoader extends ClassLoader {
         return resource;
     }
 
-    public Enumeration<URL> getResources(String name) throws IOException {
+    public Enumeration<URL> getResources(String name) {
         Enumeration<URL> answer = null;
         try {
             answer = hazelcastClassloader.getResources(name);
@@ -123,7 +123,7 @@ public class ClusterClassLoader extends ClassLoader {
         if (answer == null || !answer.hasMoreElements()) {
             PluginManager pluginManager = XMPPServer.getInstance().getPluginManager();
             for (Plugin plugin : pluginManager.getPlugins()) {
-                String pluginName = pluginManager.getPluginDirectory(plugin).getName();
+                String pluginName = pluginManager.getPluginPath(plugin).toFile().getName();
                 if ("hazelcast".equals(pluginName) || "admin".equals(pluginName)) {
                     continue;
                 }
