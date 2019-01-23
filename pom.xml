@@ -27,15 +27,6 @@
         </developer>
     </developers>
 
-    <repositories>
-        <!-- Where we obtain dependencies. -->
-        <repository>
-            <id>igniterealtime</id>
-            <name>Ignite Realtime Repository</name>
-            <url>https://igniterealtime.org/archiva/repository/maven/</url>
-        </repository>
-    </repositories>
-
     <build>
         <sourceDirectory>src/java</sourceDirectory>
         <plugins>
@@ -56,5 +47,14 @@
             <version>3.10.6</version>
         </dependency>
     </dependencies>
+
+    <repositories>
+        <!-- Where we obtain dependencies. -->
+        <repository>
+            <id>igniterealtime</id>
+            <name>Ignite Realtime Repository</name>
+            <url>https://igniterealtime.org/archiva/repository/maven/</url>
+        </repository>
+    </repositories>
 
 </project>
