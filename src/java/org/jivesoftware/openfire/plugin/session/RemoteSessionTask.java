@@ -16,12 +16,6 @@
 
 package org.jivesoftware.openfire.plugin.session;
 
-import org.jivesoftware.openfire.session.Session;
-import org.jivesoftware.util.Log;
-import org.jivesoftware.util.TaskEngine;
-import org.jivesoftware.util.cache.ClusterTask;
-import org.jivesoftware.util.cache.ExternalizableUtil;
-
 import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
@@ -29,12 +23,21 @@ import java.net.UnknownHostException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+import org.jivesoftware.openfire.session.Session;
+import org.jivesoftware.util.TaskEngine;
+import org.jivesoftware.util.cache.ClusterTask;
+import org.jivesoftware.util.cache.ExternalizableUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Operations to be executed in a remote session hosted in a remote cluster node.
  *
  * @author Gaston Dombiak
  */
 public abstract class RemoteSessionTask implements ClusterTask<Object> {
+    private static final Logger Log = LoggerFactory.getLogger(RemoteSessionTask.class);
+
     protected Object result;
     protected Operation operation;
 
@@ -80,11 +83,7 @@ public abstract class RemoteSessionTask implements ClusterTask<Object> {
             // Run in another thread so we avoid blocking calls (in hazelcast) 
             final Session session = getSession();
             if (session != null) {
-                final Future<?> future = TaskEngine.getInstance().submit(new Runnable() {
-                    public void run() {
-                        session.close();
-                    }
-                });
+                final Future<?> future = TaskEngine.getInstance().submit(session::close);
                 // Wait until the close operation is done or timeout is met
                 try {
                     future.get(15, TimeUnit.SECONDS);
