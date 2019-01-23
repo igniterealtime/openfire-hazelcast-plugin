@@ -19,12 +19,12 @@ package org.jivesoftware.openfire.plugin.session;
 import org.jivesoftware.openfire.SessionManager;
 import org.jivesoftware.openfire.StreamID;
 import org.jivesoftware.openfire.XMPPServer;
-import org.jivesoftware.openfire.session.DomainPair;
 import org.jivesoftware.openfire.session.Session;
 import org.jivesoftware.openfire.spi.BasicStreamIDFactory;
-import org.jivesoftware.util.Log;
 import org.jivesoftware.util.cache.ClusterTask;
 import org.jivesoftware.util.cache.ExternalizableUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.xmpp.packet.JID;
 
 import java.io.IOException;
@@ -37,6 +37,8 @@ import java.io.ObjectOutput;
  * @author Gaston Dombiak
  */
 public class DeliverRawTextTask implements ClusterTask<Void> {
+    private static final Logger Log = LoggerFactory.getLogger(DeliverRawTextTask.class);
+
     private SessionType sessionType;
     private JID address;
     private StreamID streamID;
@@ -46,7 +48,7 @@ public class DeliverRawTextTask implements ClusterTask<Void> {
         super();
     }
 
-    protected DeliverRawTextTask(RemoteSession remoteSession, JID address, String text) {
+    DeliverRawTextTask(RemoteSession remoteSession, JID address, String text) {
         if (remoteSession instanceof RemoteClientSession) {
             this.sessionType = SessionType.client;
         }
@@ -67,7 +69,7 @@ public class DeliverRawTextTask implements ClusterTask<Void> {
         this.text = text;
     }
 
-    public DeliverRawTextTask(StreamID streamID, String text) {
+    DeliverRawTextTask(StreamID streamID, String text) {
         this.sessionType = SessionType.incomingServer;
         this.streamID = streamID;
         this.text = text;
@@ -94,7 +96,7 @@ public class DeliverRawTextTask implements ClusterTask<Void> {
         }
     }
 
-    public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
+    public void readExternal(ObjectInput in) throws IOException {
         text = ExternalizableUtil.getInstance().readSafeUTF(in);
         sessionType = SessionType.values()[ExternalizableUtil.getInstance().readInt(in)];
         if (ExternalizableUtil.getInstance().readBoolean(in)) {
