@@ -152,7 +152,7 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
         if (cache instanceof CacheWrapper) {
             Cache wrapped = ((CacheWrapper)cache).getWrappedCache();
             if (wrapped instanceof ClusteredCache) {
-                ((ClusteredCache)wrapped).addEntryListener(listener, false);
+                ((ClusteredCache)wrapped).addEntryListener(listener);
                 // Keep track of the listener that we added to the cache
                 entryListeners.put(cache, listener);
             }

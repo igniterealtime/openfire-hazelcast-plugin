@@ -15,10 +15,11 @@
  */
 package org.jivesoftware.openfire.plugin.util.cache;
 
+import java.io.Serializable;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 import org.jivesoftware.util.cache.Cache;
@@ -34,19 +35,20 @@ import com.hazelcast.monitor.LocalMapStats;
  * Clustered implementation of the Cache interface using Hazelcast.
  *
  */
-public class ClusteredCache implements Cache {
+public class ClusteredCache<K extends Serializable, V extends Serializable> implements Cache<K, V> {
 
     private static Logger logger = LoggerFactory.getLogger(ClusteredCache.class);
     
-    private final Map<EntryListener, String> registrations = new HashMap<EntryListener, String>();
+    private final Set<String> listeners = ConcurrentHashMap.newKeySet();
 
     /**
      * The map is used for distributed operations such as get, put, etc.
      */
-    protected IMap map;
+    final IMap<K, V> map;
     private final int hazelcastLifetimeInSeconds;
     private String name;
     private long numberOfGets = 0;
+    private Map<? extends K, ? extends V> entries;
 
     /**
      * Create a new cache using the supplied named cache as the actual cache implementation
@@ -55,119 +57,132 @@ public class ClusteredCache implements Cache {
      * @param cache the cache implementation
      * @param hazelcastLifetimeInSeconds the lifetime of cache entries
      */
-    protected ClusteredCache(String name, IMap cache, final int hazelcastLifetimeInSeconds) {
-        map = cache;
+    protected ClusteredCache(String name, IMap<K,V> cache, final int hazelcastLifetimeInSeconds) {
+        this.map = cache;
         this.hazelcastLifetimeInSeconds = hazelcastLifetimeInSeconds;
-        setName(name);
+        this.name = name;
     }
 
-    public void addEntryListener(EntryListener listener, boolean includeValue) {
-        registrations.put(listener, map.addEntryListener(listener, includeValue));
+    void addEntryListener(EntryListener listener) {
+        listeners.add(map.addEntryListener(listener, false));
     }
 
-    public void removeEntryListener(EntryListener listener) {
-        String registrationId = registrations.get(listener);
-        if (registrationId != null) {
-            map.removeEntryListener(registrationId);
-        }
-    }
-
-    // Cache Interface
-
+    @Override
     public String getName() {
         return name;
     }
 
+    @Override
     public void setName(String name) {
         this.name = name;
     }
 
-    public Object put(Object key, Object object) {
+    @Override
+    public V put(K key, V object) {
         if (object == null) { return null; }
         return map.put(key, object, hazelcastLifetimeInSeconds, TimeUnit.SECONDS);
     }
 
-    public Object get(Object key) {
+    @Override
+    public V get(Object key) {
         numberOfGets++;
         return map.get(key);
     }
 
-    public Object remove(Object key) {
+    @Override
+    public V remove(Object key) {
         return map.remove(key);
     }
 
+    @Override
     public void clear() {
         map.clear();
     }
 
+    @Override
     public int size() {
         LocalMapStats stats = map.getLocalMapStats();
         return (int) (stats.getOwnedEntryCount() + stats.getBackupEntryCount());
     }
 
+    @Override
     public boolean containsKey(Object key) {
         return map.containsKey(key);
     }
 
+    @Override
     public boolean containsValue(Object value) {
         return map.containsValue(value);
     }
 
-    public Set entrySet() {
+    @Override
+    public Set<Map.Entry<K, V>> entrySet() {
         return map.entrySet();
     }
 
+    @Override
     public boolean isEmpty() {
         return map.isEmpty();
     }
 
-    public Set keySet() {
+    @Override
+    public Set<K> keySet() {
         return map.keySet();
     }
 
-    public void putAll(Map entries) {
+    @Override
+    public void putAll(Map<? extends K, ? extends V> entries) {
         map.putAll(entries);
     }
 
-    public Collection values() {
+    @Override
+    public Collection<V> values() {
         return map.values();
     }
 
+    @Override
     public long getCacheHits() {
         return map.getLocalMapStats().getHits();
     }
 
+    @Override
     public long getCacheMisses() {
         long hits = map.getLocalMapStats().getHits();
         return numberOfGets > hits ? numberOfGets - hits : 0;
     }
 
+    @Override
     public int getCacheSize() {
         LocalMapStats stats = map.getLocalMapStats();
         return (int) (stats.getOwnedEntryMemoryCost() + stats.getBackupEntryMemoryCost());
     }
 
+    @Override
     public long getMaxCacheSize() {
         return CacheFactory.getMaxCacheSize(getName());
     }
 
+    @Override
     public void setMaxCacheSize(int maxSize) {
         CacheFactory.setMaxSizeProperty(getName(), maxSize);
     }
 
+    @Override
     public long getMaxLifetime() {
         return CacheFactory.getMaxCacheLifetime(getName());
     }
 
+    @Override
     public void setMaxLifetime(long maxLifetime) {
         CacheFactory.setMaxLifetimeProperty(getName(), maxLifetime);
     }
 
-    public void destroy() {
+    void destroy() {
+        listeners.forEach(map::removeEntryListener);
         map.destroy();
     }
 
-    public boolean lock(Object key, long timeout) {
+    boolean lock(K key, long timeout) {
         boolean result = true;
         if (timeout < 0) {
             map.lock(key);
@@ -184,14 +199,12 @@ public class ClusteredCache implements Cache {
         return result;
     }
 
-    public boolean unlock(Object key) {
-        boolean result = true;
-         try { map.unlock(key); }
-         catch (IllegalMonitorStateException e) {
-             logger.error("Falied to release cluster lock", e);
-             result = false;
-         }
-         return result;
+    void unlock(K key) {
+        try {
+            map.unlock(key);
+        } catch (IllegalMonitorStateException e) {
+            logger.error("Failed to release cluster lock", e);
+        }
     }
 
 }

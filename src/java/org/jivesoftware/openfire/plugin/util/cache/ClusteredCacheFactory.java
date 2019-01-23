@@ -53,7 +53,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -505,15 +504,15 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
         if (cache instanceof CacheWrapper) {
             cache = ((CacheWrapper) cache).getWrappedCache();
         }
-        return new ClusterLock(key, (ClusteredCache) cache);
+        return new ClusterLock((Serializable) key, (ClusteredCache) cache);
     }
 
     private static class ClusterLock implements Lock {
 
-        private Object key;
-        private ClusteredCache cache;
+        private final Serializable key;
+        private final ClusteredCache cache;
 
-        ClusterLock(Object key, ClusteredCache cache) {
+        ClusterLock(final Serializable key, final ClusteredCache cache) {
             this.key = key;
             this.cache = cache;
         }
