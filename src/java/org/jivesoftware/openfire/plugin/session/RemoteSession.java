@@ -99,29 +99,29 @@ public abstract class RemoteSession implements Session {
     }
 
     public Date getLastActiveDate() {
-        ClusterTask task = getRemoteSessionTask(RemoteSessionTask.Operation.getLastActiveDate);
+        ClusterTask<Object> task = getRemoteSessionTask(RemoteSessionTask.Operation.getLastActiveDate);
         return (Date) doSynchronousClusterTask(task);
     }
 
     public long getNumClientPackets() {
-        ClusterTask task = getRemoteSessionTask(RemoteSessionTask.Operation.getNumClientPackets);
+        ClusterTask<Object> task = getRemoteSessionTask(RemoteSessionTask.Operation.getNumClientPackets);
         final Object clusterTaskResult = doSynchronousClusterTask(task);
         return clusterTaskResult == null ? -1 : (Long) clusterTaskResult;
     }
 
     public long getNumServerPackets() {
-        ClusterTask task = getRemoteSessionTask(RemoteSessionTask.Operation.getNumServerPackets);
+        ClusterTask<Object> task = getRemoteSessionTask(RemoteSessionTask.Operation.getNumServerPackets);
         final Object clusterTaskResult = doSynchronousClusterTask(task);
         return clusterTaskResult == null ? -1 : (Long) clusterTaskResult;
     }
 
     public String getCipherSuiteName() {
-        ClusterTask task = getRemoteSessionTask(RemoteSessionTask.Operation.getCipherSuiteName);
+        ClusterTask<Object> task = getRemoteSessionTask(RemoteSessionTask.Operation.getCipherSuiteName);
         return (String) doSynchronousClusterTask(task);
     }
 
     public Certificate[] getPeerCertificates() {
-        ClusterTask task = getRemoteSessionTask(RemoteSessionTask.Operation.getPeerCertificates);
+        ClusterTask<Object> task = getRemoteSessionTask(RemoteSessionTask.Operation.getPeerCertificates);
         return (Certificate[]) doSynchronousClusterTask(task);
     }
 
@@ -134,20 +134,20 @@ public abstract class RemoteSession implements Session {
     }
 
     public boolean isClosed() {
-        ClusterTask task = getRemoteSessionTask(RemoteSessionTask.Operation.isClosed);
+        ClusterTask<Object> task = getRemoteSessionTask(RemoteSessionTask.Operation.isClosed);
         final Object clusterTaskResult = doSynchronousClusterTask(task);
         return clusterTaskResult == null ? false : (Boolean) clusterTaskResult;
     }
 
     public boolean isSecure() {
-        ClusterTask task = getRemoteSessionTask(RemoteSessionTask.Operation.isSecure);
+        ClusterTask<Object> task = getRemoteSessionTask(RemoteSessionTask.Operation.isSecure);
         final Object clusterTaskResult = doSynchronousClusterTask(task);
         return clusterTaskResult == null ? false : (Boolean) clusterTaskResult;
     }
 
     public String getHostAddress() throws UnknownHostException {
         if (hostAddress == null) {
-            ClusterTask task = getRemoteSessionTask(RemoteSessionTask.Operation.getHostAddress);
+            ClusterTask<Object> task = getRemoteSessionTask(RemoteSessionTask.Operation.getHostAddress);
             hostAddress = (String) doSynchronousClusterTask(task);
         }
         return hostAddress;
@@ -155,7 +155,7 @@ public abstract class RemoteSession implements Session {
 
     public String getHostName() throws UnknownHostException {
         if (hostName == null) {
-            ClusterTask task = getRemoteSessionTask(RemoteSessionTask.Operation.getHostName);
+            ClusterTask<Object> task = getRemoteSessionTask(RemoteSessionTask.Operation.getHostName);
             hostName = (String) doSynchronousClusterTask(task);
         }
         return hostName;
@@ -166,7 +166,7 @@ public abstract class RemoteSession implements Session {
     }
 
     public boolean validate() {
-        ClusterTask task = getRemoteSessionTask(RemoteSessionTask.Operation.validate);
+        ClusterTask<Object> task = getRemoteSessionTask(RemoteSessionTask.Operation.validate);
         final Object clusterTaskResult = doSynchronousClusterTask(task);
         return clusterTaskResult == null ? false : (Boolean) clusterTaskResult;
     }
@@ -182,7 +182,7 @@ public abstract class RemoteSession implements Session {
      * @param task        the ClusterTask object to be invoked on a given cluster member.
      * @return result of remote operation.
      */
-    protected Object doSynchronousClusterTask(ClusterTask task) {
+    protected Object doSynchronousClusterTask(ClusterTask<Object> task) {
         ClusterNodeInfo info = CacheFactory.getClusterNodeInfo(nodeID);
         Object result = null;
         if (info == null && task instanceof RemoteSessionTask) { // clean up invalid session
