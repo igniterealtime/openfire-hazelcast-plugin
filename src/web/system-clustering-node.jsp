@@ -2,10 +2,6 @@
 <%@ page import="org.jivesoftware.openfire.plugin.util.cluster.NodeRuntimeStats,
                  org.jivesoftware.util.cache.CacheFactory,
                  com.hazelcast.core.Hazelcast,
-                 com.hazelcast.core.Cluster,
-                 com.hazelcast.core.Member,
-                 com.hazelcast.config.ClasspathXmlConfig,
-                 com.hazelcast.config.Config,
                  org.jivesoftware.openfire.cluster.ClusterManager,
                  org.jivesoftware.openfire.cluster.NodeID,
                  org.jivesoftware.openfire.cluster.ClusterNodeInfo"
@@ -19,14 +15,9 @@
 <%@ page import="java.text.DecimalFormat" %>
 <%@ page import="java.text.NumberFormat" %>
 <%@ page import="java.util.*" %>
-<%@ page import="java.util.LinkedList" %>
 
 <jsp:useBean id="webManager" class="org.jivesoftware.util.WebManager"  />
 <% webManager.init(request, response, session, application, out ); %>
-
-
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <html>
 <head>
@@ -382,26 +373,6 @@ Cache statistics for this cluster node appear below.
 </div>
 
 <br /><br />
-
-<div class="jive-table">
-<table cellpadding="0" cellspacing="0" border="0" width="100%">
-<thead>
-    <tr>
-        <th colspan="2">
-            Openfire Cluster Details
-        </th>
-    </tr>
-</thead>
-<tbody>
-    <tr>
-        <td width="100%">
-            Hazelcast Version <%= NodeRuntimeStats.getProviderConfig("hazelcast.version") %> 
-            Build <%= NodeRuntimeStats.getProviderConfig("hazelcast.build") %>
-        </td>
-    </tr>
-</tbody>
-</table>
-</div>
 
 <br/>
 
