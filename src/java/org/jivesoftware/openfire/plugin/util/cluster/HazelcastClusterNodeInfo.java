@@ -16,10 +16,11 @@
 
 package org.jivesoftware.openfire.plugin.util.cluster;
 
+import java.nio.charset.StandardCharsets;
+
 import org.jivesoftware.openfire.cluster.ClusterManager;
 import org.jivesoftware.openfire.cluster.ClusterNodeInfo;
 import org.jivesoftware.openfire.cluster.NodeID;
-import org.jivesoftware.util.StringUtils;
 
 import com.hazelcast.core.Member;
 
@@ -31,20 +32,17 @@ import com.hazelcast.core.Member;
  */
 public class HazelcastClusterNodeInfo implements ClusterNodeInfo {
 
-    private String hostname;
-    private NodeID nodeID;
-    private long joinedTime;
-    private boolean seniorMember;
+    private final String hostname;
+    private final NodeID nodeID;
+    private final long joinedTime;
+    private final boolean seniorMember;
 
-    public HazelcastClusterNodeInfo(Member member) {
-        this(member, System.currentTimeMillis());
-    }
-
-    public HazelcastClusterNodeInfo(Member member, Long joinedTime) {
-        hostname = member.getSocketAddress().getHostString();
-        nodeID = NodeID.getInstance(StringUtils.getBytes(member.getUuid()));
+    public HazelcastClusterNodeInfo(final Member member, final long joinedTime) {
+        final byte[] memberBytes = member.getUuid().getBytes(StandardCharsets.UTF_8);
+        this.hostname = member.getSocketAddress().getHostString();
+        this.nodeID = NodeID.getInstance(memberBytes);
         this.joinedTime = joinedTime;
-        seniorMember = ClusterManager.getSeniorClusterMember().equals(StringUtils.getBytes(member.getUuid()));
+        this.seniorMember = ClusterManager.getSeniorClusterMember().equals(memberBytes);
     }
 
     public String getHostName() {
