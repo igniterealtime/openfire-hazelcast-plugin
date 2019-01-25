@@ -45,6 +45,7 @@ import org.slf4j.LoggerFactory;
  *
  * @author Tom Evans
  * @author Gaston Dombiak
+ * // TODO: (Greg 2019-01-25) Repalce use of deprecated pluginManager.getPluginDirectory(plugin) when OF 4.0.x support is no longer required
  */
 public class ClusterClassLoader extends ClassLoader {
     
@@ -77,7 +78,7 @@ public class ClusterClassLoader extends ClassLoader {
         catch (ClassNotFoundException e) {
             PluginManager pluginManager = XMPPServer.getInstance().getPluginManager();
             for (Plugin plugin : pluginManager.getPlugins()) {
-                String pluginName = pluginManager.getPluginPath(plugin).toFile().getName();
+                String pluginName = pluginManager.getPluginDirectory(plugin).getName();
                 if ("hazelcast".equals(pluginName) || "admin".equals(pluginName)) {
                     continue;
                 }
@@ -98,7 +99,7 @@ public class ClusterClassLoader extends ClassLoader {
         if (resource == null) {
             PluginManager pluginManager = XMPPServer.getInstance().getPluginManager();
             for (Plugin plugin : pluginManager.getPlugins()) {
-                String pluginName = pluginManager.getPluginPath(plugin).toFile().getName();
+                String pluginName = pluginManager.getPluginDirectory(plugin).getName();
                 if ("hazelcast".equals(pluginName) || "admin".equals(pluginName)) {
                     continue;
                 }
@@ -123,7 +124,7 @@ public class ClusterClassLoader extends ClassLoader {
         if (answer == null || !answer.hasMoreElements()) {
             PluginManager pluginManager = XMPPServer.getInstance().getPluginManager();
             for (Plugin plugin : pluginManager.getPlugins()) {
-                String pluginName = pluginManager.getPluginPath(plugin).toFile().getName();
+                String pluginName = pluginManager.getPluginDirectory(plugin).getName();
                 if ("hazelcast".equals(pluginName) || "admin".equals(pluginName)) {
                     continue;
                 }
