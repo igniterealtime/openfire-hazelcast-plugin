@@ -343,7 +343,7 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
             logger.debug("Executing asynchronous MultiTask: " + task.getClass().getName());
             hazelcast.getExecutorService(HAZELCAST_EXECUTOR_SERVICE_NAME).submitToMembers(new CallableTask<>(task), members);
         } else {
-            logger.warn("No cluster members selected for cluster task " + task.getClass().getName());
+            logger.debug("No cluster members selected for cluster task " + task.getClass().getName());
         }
     }
 
