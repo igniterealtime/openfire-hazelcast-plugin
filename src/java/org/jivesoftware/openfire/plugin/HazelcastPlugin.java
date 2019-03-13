@@ -16,6 +16,12 @@
 
 package org.jivesoftware.openfire.plugin;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
 import org.jivesoftware.openfire.XMPPServer;
 import org.jivesoftware.openfire.cluster.ClusterManager;
 import org.jivesoftware.openfire.container.Plugin;
@@ -24,13 +30,6 @@ import org.jivesoftware.openfire.container.PluginManagerListener;
 import org.jivesoftware.util.JiveGlobals;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.File;
-import java.io.FileFilter;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 
 /**
  * Hazelcast clustering plugin. This implementation is based upon
@@ -60,14 +59,11 @@ public class HazelcastPlugin implements Plugin {
         LOGGER.info("All plugins have initialized; initializing clustering");
         // Check if another cluster is installed and stop loading this plugin if found
         final String openfireHome = JiveGlobals.getHomeDirectory();
-        File pluginDir = new File(openfireHome, "plugins");
-        File[] jars = pluginDir.listFiles(new FileFilter() {
-            @Override
-            public boolean accept(File pathname) {
-                String fileName = pathname.getName().toLowerCase();
-                return (fileName.equalsIgnoreCase("enterprise.jar") || 
-                        fileName.equalsIgnoreCase("coherence.jar"));
-            }
+        final File pluginDir = new File(openfireHome, "plugins");
+        final File[] jars = pluginDir.listFiles(pathname -> {
+            final String fileName = pathname.getName().toLowerCase();
+            return (fileName.equalsIgnoreCase("enterprise.jar") ||
+                    fileName.equalsIgnoreCase("coherence.jar"));
         });
         if (jars != null && jars.length > 0) {
             // Do not load this plugin if a conflicting implementation exists
@@ -78,7 +74,7 @@ public class HazelcastPlugin implements Plugin {
         try {
             final Path pathToLocalHazelcastConfig = Paths.get(openfireHome, "conf/hazelcast-local-config.xml");
             if (!Files.exists(pathToLocalHazelcastConfig)) {
-                Files.copy(Paths.get(hazelcastPluginDirectory.getAbsolutePath(), "classes/hazelcast-local-config.xml.template"), pathToLocalHazelcastConfig);
+                Files.copy(Paths.get(hazelcastPluginDirectory.getAbsolutePath(), "classes/hazelcast-local-config.template.xml"), pathToLocalHazelcastConfig);
             }
             ClusterManager.startup();
         } catch (final IOException e) {
