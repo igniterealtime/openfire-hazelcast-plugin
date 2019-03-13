@@ -32,6 +32,7 @@ import com.hazelcast.core.Member;
  */
 public class HazelcastClusterNodeInfo implements ClusterNodeInfo {
 
+    public static final String HOST_NAME_ATTRIBUTE = "hostname";
     private final String hostname;
     private final NodeID nodeID;
     private final long joinedTime;
@@ -39,7 +40,7 @@ public class HazelcastClusterNodeInfo implements ClusterNodeInfo {
 
     public HazelcastClusterNodeInfo(final Member member, final long joinedTime) {
         final byte[] memberBytes = member.getUuid().getBytes(StandardCharsets.UTF_8);
-        this.hostname = member.getSocketAddress().getHostString();
+        this.hostname = member.getStringAttribute(HOST_NAME_ATTRIBUTE) + " (" + member.getSocketAddress().getHostString() + ")";
         this.nodeID = NodeID.getInstance(memberBytes);
         this.joinedTime = joinedTime;
         this.seniorMember = ClusterManager.getSeniorClusterMember().equals(memberBytes);
