@@ -20,7 +20,6 @@ import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
 import java.text.MessageFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -60,6 +59,7 @@ import com.hazelcast.config.ClasspathXmlConfig;
 import com.hazelcast.config.Config;
 import com.hazelcast.config.MapConfig;
 import com.hazelcast.config.MaxSizeConfig;
+import com.hazelcast.config.MemberAttributeConfig;
 import com.hazelcast.core.Cluster;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
@@ -132,7 +132,9 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
         do {
             try {
                 final Config config = new ClasspathXmlConfig(HAZELCAST_CONFIG_FILE);
-                config.getMemberAttributeConfig().setStringAttribute(HazelcastClusterNodeInfo.HOST_NAME_ATTRIBUTE, XMPPServer.getInstance().getServerInfo().getHostname());
+                final MemberAttributeConfig memberAttributeConfig = config.getMemberAttributeConfig();
+                memberAttributeConfig.setStringAttribute(HazelcastClusterNodeInfo.HOST_NAME_ATTRIBUTE, XMPPServer.getInstance().getServerInfo().getHostname());
+                memberAttributeConfig.setStringAttribute(HazelcastClusterNodeInfo.NODE_ID_ATTRIBUTE, XMPPServer.getInstance().getNodeID().toString());
                 config.setInstanceName("openfire");
                 config.setClassLoader(loader);
                 if (JMXManager.isEnabled() && HAZELCAST_JMX_ENABLED) {
@@ -141,12 +143,7 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
                 }
                 hazelcast = Hazelcast.newHazelcastInstance(config);
                 cluster = hazelcast.getCluster();
-
-                // Update the running state of the cluster
-                state = cluster != null ? State.started : State.stopped;
-
-                // Set the ID of this cluster node
-                XMPPServer.getInstance().setNodeID(NodeID.getInstance(getClusterMemberID()));
+                state = State.started;
                 // CacheFactory is now using clustered caches. We can add our listeners.
                 clusterListener = new ClusterListener(cluster);
                 clusterListener.joinCluster();
@@ -227,7 +224,6 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
         lifecycleListener = null;
         membershipListener = null;
         clusterListener = null;
-        XMPPServer.getInstance().setNodeID(null);
 
         // Reset packet router to use to deliver packets to remote cluster nodes
         XMPPServer.getInstance().getRoutingTable().setRemotePacketRouter(null);
@@ -307,7 +303,7 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
     public byte[] getSeniorClusterMemberID() {
         if (cluster != null && !cluster.getMembers().isEmpty()) {
             final Member oldest = cluster.getMembers().iterator().next();
-            return oldest.getUuid().getBytes(StandardCharsets.UTF_8);
+            return getNodeID(oldest).toByteArray();
         } else {
             return null;
         }
@@ -316,7 +312,7 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
     @Override
     public byte[] getClusterMemberID() {
         if (cluster != null) {
-            return cluster.getLocalMember().getUuid().getBytes(StandardCharsets.UTF_8);
+            return getNodeID(cluster.getLocalMember()).toByteArray();
         } else {
             return null;
         }
@@ -418,7 +414,7 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
                 logger.error("Failed to execute cluster task", e);
             }
         } else {
-            logger.warn("No cluster members selected for cluster task " + task.getClass().getName());
+            logger.debug("No cluster members selected for cluster task " + task.getClass().getName());
         }
         return result;
     }
@@ -470,14 +466,13 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
     }
 
     private Member getMember(final byte[] nodeID) {
-        Member result = null;
+        final NodeID memberToFind = NodeID.getInstance(nodeID);
         for (final Member member : cluster.getMembers()) {
-            if (Arrays.equals(member.getUuid().getBytes(StandardCharsets.UTF_8), nodeID)) {
-                result = member;
-                break;
+            if (memberToFind.equals(getNodeID(member))) {
+                return member;
             }
         }
-        return result;
+        return null;
     }
 
     @Override
@@ -487,7 +482,7 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
             if (cacheStats == null) {
                 cacheStats = hazelcast.getMap("opt-$cacheStats");
             }
-            final String uid = cluster.getLocalMember().getUuid();
+            final String uid = getNodeID(cluster.getLocalMember()).toString();
             final Map<String, long[]> stats = new HashMap<>();
             for (final String cacheName : caches.keySet()) {
                 final Cache cache = caches.get(cacheName);
@@ -585,6 +580,11 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
         starting,
         started
     }
+
+    public static NodeID getNodeID(final Member member) {
+        return NodeID.getInstance(member.getStringAttribute(HazelcastClusterNodeInfo.NODE_ID_ATTRIBUTE).getBytes(StandardCharsets.UTF_8));
+    }
+
 }
 
 
