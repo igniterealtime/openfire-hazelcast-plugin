@@ -37,7 +37,7 @@ import com.hazelcast.monitor.LocalMapStats;
  */
 public class ClusteredCache<K extends Serializable, V extends Serializable> implements Cache<K, V> {
 
-    private static Logger logger = LoggerFactory.getLogger(ClusteredCache.class);
+    private static final Logger logger = LoggerFactory.getLogger(ClusteredCache.class);
     
     private final Set<String> listeners = ConcurrentHashMap.newKeySet();
 
@@ -45,7 +45,6 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
      * The map is used for distributed operations such as get, put, etc.
      */
     final IMap<K, V> map;
-    private final int hazelcastLifetimeInSeconds;
     private String name;
     private long numberOfGets = 0;
 
@@ -54,15 +53,13 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
      *
      * @param name a name for the cache, which should be unique per vm.
      * @param cache the cache implementation
-     * @param hazelcastLifetimeInSeconds the lifetime of cache entries
      */
-    protected ClusteredCache(String name, IMap<K,V> cache, final int hazelcastLifetimeInSeconds) {
+    protected ClusteredCache(final String name, final IMap<K, V> cache) {
         this.map = cache;
-        this.hazelcastLifetimeInSeconds = hazelcastLifetimeInSeconds;
         this.name = name;
     }
 
-    void addEntryListener(MapListener listener) {
+    void addEntryListener(final MapListener listener) {
         listeners.add(map.addEntryListener(listener, false));
     }
 
@@ -72,24 +69,24 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
     }
 
     @Override
-    public void setName(String name) {
+    public void setName(final String name) {
         this.name = name;
     }
 
     @Override
-    public V put(K key, V object) {
+    public V put(final K key, final V object) {
         if (object == null) { return null; }
-        return map.put(key, object, hazelcastLifetimeInSeconds, TimeUnit.SECONDS);
+        return map.put(key, object);
     }
 
     @Override
-    public V get(Object key) {
+    public V get(final Object key) {
         numberOfGets++;
         return map.get(key);
     }
 
     @Override
-    public V remove(Object key) {
+    public V remove(final Object key) {
         return map.remove(key);
     }
 
@@ -100,17 +97,17 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
 
     @Override
     public int size() {
-        LocalMapStats stats = map.getLocalMapStats();
+        final LocalMapStats stats = map.getLocalMapStats();
         return (int) (stats.getOwnedEntryCount() + stats.getBackupEntryCount());
     }
 
     @Override
-    public boolean containsKey(Object key) {
+    public boolean containsKey(final Object key) {
         return map.containsKey(key);
     }
 
     @Override
-    public boolean containsValue(Object value) {
+    public boolean containsValue(final Object value) {
         return map.containsValue(value);
     }
 
@@ -130,7 +127,7 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
     }
 
     @Override
-    public void putAll(Map<? extends K, ? extends V> entries) {
+    public void putAll(final Map<? extends K, ? extends V> entries) {
         map.putAll(entries);
     }
 
@@ -146,13 +143,13 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
 
     @Override
     public long getCacheMisses() {
-        long hits = map.getLocalMapStats().getHits();
+        final long hits = map.getLocalMapStats().getHits();
         return numberOfGets > hits ? numberOfGets - hits : 0;
     }
 
     @Override
     public int getCacheSize() {
-        LocalMapStats stats = map.getLocalMapStats();
+        final LocalMapStats stats = map.getLocalMapStats();
         return (int) (stats.getOwnedEntryMemoryCost() + stats.getBackupEntryMemoryCost());
     }
 
@@ -162,7 +159,7 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
     }
 
     @Override
-    public void setMaxCacheSize(int maxSize) {
+    public void setMaxCacheSize(final int maxSize) {
         CacheFactory.setMaxSizeProperty(getName(), maxSize);
     }
 
@@ -172,7 +169,7 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
     }
 
     @Override
-    public void setMaxLifetime(long maxLifetime) {
+    public void setMaxLifetime(final long maxLifetime) {
         CacheFactory.setMaxLifetimeProperty(getName(), maxLifetime);
     }
 
@@ -181,7 +178,7 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
         map.destroy();
     }
 
-    boolean lock(K key, long timeout) {
+    boolean lock(final K key, final long timeout) {
         boolean result = true;
         if (timeout < 0) {
             map.lock(key);
@@ -190,7 +187,7 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
         } else {
             try {
                 result = map.tryLock(key, timeout, TimeUnit.MILLISECONDS);
-            } catch (InterruptedException e) {
+            } catch (final InterruptedException e) {
                 logger.error("Failed to get cluster lock", e);
                 result = false;
             }
@@ -198,10 +195,10 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
         return result;
     }
 
-    void unlock(K key) {
+    void unlock(final K key) {
         try {
             map.unlock(key);
-        } catch (IllegalMonitorStateException e) {
+        } catch (final IllegalMonitorStateException e) {
             logger.error("Failed to release cluster lock", e);
         }
     }

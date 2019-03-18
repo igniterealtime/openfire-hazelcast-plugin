@@ -257,12 +257,20 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
         // Determine the max cache size. Note that in Hazelcast the max cache size must be positive
         final long openfireMaxCacheSize = CacheFactory.getMaxCacheSize(name);
         final int hazelcastMaxCacheSize = openfireMaxCacheSize < 0 ? Integer.MAX_VALUE : (int) openfireMaxCacheSize;
-        final MapConfig mapConfig = hazelcast.getConfig().getMapConfig(name);
-        mapConfig.setTimeToLiveSeconds(hazelcastLifetimeInSeconds);
-        mapConfig.setMaxSizeConfig(new MaxSizeConfig(hazelcastMaxCacheSize, MaxSizeConfig.MaxSizePolicy.USED_HEAP_SIZE));
+        // It's only possible to create a dynamic config if a static one doesn't already exist
+        final MapConfig staticConfig = hazelcast.getConfig().getMapConfigOrNull(name);
+        if (staticConfig == null) {
+            final MapConfig dynamicConfig = new MapConfig(name);
+            dynamicConfig.setTimeToLiveSeconds(hazelcastLifetimeInSeconds);
+            dynamicConfig.setMaxSizeConfig(new MaxSizeConfig(hazelcastMaxCacheSize, MaxSizeConfig.MaxSizePolicy.USED_HEAP_SIZE));
+            logger.debug("Creating dynamic map config for cache={}, dynamicConfig={}", name, dynamicConfig);
+            hazelcast.getConfig().addMapConfig(dynamicConfig);
+        } else {
+            logger.debug("Static configuration already exists for cache={}, staticConfig={}", name, staticConfig);
+        }
         // TODO: Better genericize this method in CacheFactoryStrategy so we can stop suppressing this warning
         @SuppressWarnings("unchecked")
-        final ClusteredCache clusteredCache = new ClusteredCache(name, hazelcast.getMap(name), hazelcastLifetimeInSeconds);
+        final ClusteredCache clusteredCache = new ClusteredCache(name, hazelcast.getMap(name));
         return clusteredCache;
     }
 
