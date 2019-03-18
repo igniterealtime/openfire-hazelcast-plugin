@@ -260,5 +260,45 @@ OPENFIRE_OPTS="-Xmx4G -Xms4G -XX:NewRatio=1 -XX:SurvivorRatio=4
 <p>This GC configuration will also emit helpful GC diagnostic information to the console to aid further
 tuning and troubleshooting as appropriate for your deployment.
 </p>
+
+<h2>Configuring Cache expiry times and sizes</h2>
+<h3>Core Openfire caches</h3>
+When clustering is enabled, the only way to change the size of standard Openfire caches is by
+editing <code>plugins/hazelcast/classes/hazelcast-cache-config.xml</code> on every node in the cluster, shutting down
+every node in the cluster, and then restarting the nodes. Dynamic configuration is not currently possible, and using
+different configurations on different nodes is liable to lead to odd behaviour.
+
+<p>This is different to non-clustered caches, where it is sufficient to edit the
+    <code>cache.[cache name].maxLifetime</code> and <code>cache.[cache name].size</code> System Properties</p>
+
+<h3>Plugin defined caches</h3>
+A plugin can create it's own Cache without the requirement to edit any configuration files. For example;
+
+<pre>
+    final String cacheName = "my-test-cache";
+    CacheFactory.setMaxSizeProperty(cacheName, maxCacheSize);
+    CacheFactory.setMaxLifetimeProperty(cacheName, maxLifetime);
+
+    final Cache&lt;JID, Instant&gt; cache = CacheFactory.createCache(cacheName);
+</pre>
+
+Notes;
+<ul>
+    <li>
+        <code>CacheFactory.setMaxSizeProperty</code>/<code>CacheFactory.setMaxLifetimeProperty</code> will set Openfire
+        System Properties that are used to configure the Cache when it is created.
+    </li>
+    <li>
+        If no Openfire System Properties are set, the default expiry values are used (unlimited size and six hours,
+        respectively).
+    </li>
+    <li>
+        The first node in the cluster to call <code>CacheFactory.createCache</code> will use the configured expiry
+        values, subsequent calls to <code>CacheFactory.createCache</code> will simply retrieve the existing Cache
+        with the previously configured expiry values. It is not possible to change the expiry values after the Cache
+        has been created.
+    </li>
+</ul>
+
 </body>
 </html>
