@@ -19,6 +19,7 @@ package org.jivesoftware.openfire.plugin.util.cache;
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
 import java.text.MessageFormat;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -45,6 +46,7 @@ import org.jivesoftware.openfire.plugin.session.RemoteSessionLocator;
 import org.jivesoftware.openfire.plugin.util.cluster.ClusterPacketRouter;
 import org.jivesoftware.openfire.plugin.util.cluster.HazelcastClusterNodeInfo;
 import org.jivesoftware.util.JiveGlobals;
+import org.jivesoftware.util.StringUtils;
 import org.jivesoftware.util.cache.Cache;
 import org.jivesoftware.util.cache.CacheFactory;
 import org.jivesoftware.util.cache.CacheFactoryStrategy;
@@ -184,38 +186,7 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
 
         // Fire the leftClusterEvent before we leave the cluster - we need to access the clustered data before the
         // cluster is shutdown so it can be copied in to the non-clustered, DefaultCache
-        final Semaphore leftClusterSemaphore = new Semaphore(0);
-        final ClusterEventListener clusterEventListener = new ClusterEventListener() {
-            @Override
-            public void joinedCluster() {
-            }
-
-            @Override
-            public void joinedCluster(final byte[] bytes) {
-            }
-
-            @Override
-            public void leftCluster() {
-                leftClusterSemaphore.release();
-            }
-
-            @Override
-            public void leftCluster(final byte[] bytes) {
-            }
-
-            @Override
-            public void markedAsSeniorClusterMember() {
-            }
-        };
-        try {
-            ClusterManager.addListener(clusterEventListener);
-            ClusterManager.fireLeftCluster();
-            leftClusterSemaphore.tryAcquire(30, TimeUnit.SECONDS);
-        } catch( final Exception e) {
-            logger.error("Unexpected exception waiting for clustering to shut down", e);
-        } finally {
-            ClusterManager.removeListener(clusterEventListener);
-        }
+        fireLeftClusterAndWaitToComplete(Duration.ofSeconds(30));
         // Stop the cluster
         hazelcast.getLifecycleService().removeLifecycleListener(lifecycleListener);
         cluster.removeMembershipListener(membershipListener);
@@ -583,6 +554,45 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
 
     public static NodeID getNodeID(final Member member) {
         return NodeID.getInstance(member.getStringAttribute(HazelcastClusterNodeInfo.NODE_ID_ATTRIBUTE).getBytes(StandardCharsets.UTF_8));
+    }
+
+    static void fireLeftClusterAndWaitToComplete(final Duration timeout) {
+        final Semaphore leftClusterSemaphore = new Semaphore(0);
+        final ClusterEventListener clusterEventListener = new ClusterEventListener() {
+            @Override
+            public void joinedCluster() {
+            }
+
+            @Override
+            public void joinedCluster(final byte[] bytes) {
+            }
+
+            @Override
+            public void leftCluster() {
+                leftClusterSemaphore.release();
+            }
+
+            @Override
+            public void leftCluster(final byte[] bytes) {
+            }
+
+            @Override
+            public void markedAsSeniorClusterMember() {
+            }
+        };
+        try {
+            ClusterManager.addListener(clusterEventListener);
+            logger.debug("Firing leftCluster() event");
+            ClusterManager.fireLeftCluster();
+            logger.debug("Waiting for leftCluster() event to be called [timeout={}]", StringUtils.getFullElapsedTime(timeout));
+            if (!leftClusterSemaphore.tryAcquire(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
+                logger.warn("Timeout waiting for leftCluster() event to be called [timeout={}]", StringUtils.getFullElapsedTime(timeout));
+            }
+        } catch (final Exception e) {
+            logger.error("Unexpected exception waiting for clustering to shut down", e);
+        } finally {
+            ClusterManager.removeListener(clusterEventListener);
+        }
     }
 
 }
