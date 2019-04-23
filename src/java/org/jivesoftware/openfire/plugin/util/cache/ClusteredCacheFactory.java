@@ -62,6 +62,9 @@ import com.hazelcast.config.Config;
 import com.hazelcast.config.MapConfig;
 import com.hazelcast.config.MaxSizeConfig;
 import com.hazelcast.config.MemberAttributeConfig;
+import com.hazelcast.config.MemcacheProtocolConfig;
+import com.hazelcast.config.NetworkConfig;
+import com.hazelcast.config.RestApiConfig;
 import com.hazelcast.core.Cluster;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
@@ -88,6 +91,10 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
         JiveGlobals.getProperty("hazelcast.config.xml.filename", "hazelcast-cache-config.xml");
     private static final boolean HAZELCAST_JMX_ENABLED =
         JiveGlobals.getBooleanProperty("hazelcast.config.jmx.enabled", false);
+    private static final boolean HAZELCAST_REST_ENABLED =
+        JiveGlobals.getBooleanProperty("hazelcast.config.rest.enabled", false);
+    private static final boolean HAZELCAST_MEMCACHE_ENABLED =
+        JiveGlobals.getBooleanProperty("hazelcast.config.memcache.enabled", false);
 
     private static final Logger logger = LoggerFactory.getLogger(ClusteredCacheFactory.class);
 
@@ -134,6 +141,13 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
         do {
             try {
                 final Config config = new ClasspathXmlConfig(HAZELCAST_CONFIG_FILE);
+                final NetworkConfig networkConfig = config.getNetworkConfig();
+                if (!HAZELCAST_MEMCACHE_ENABLED) {
+                    networkConfig.setMemcacheProtocolConfig(new MemcacheProtocolConfig().setEnabled(false));
+                }
+                if (!HAZELCAST_REST_ENABLED) {
+                    networkConfig.setRestApiConfig(new RestApiConfig().setEnabled(false));
+                }
                 final MemberAttributeConfig memberAttributeConfig = config.getMemberAttributeConfig();
                 memberAttributeConfig.setStringAttribute(HazelcastClusterNodeInfo.HOST_NAME_ATTRIBUTE, XMPPServer.getInstance().getServerInfo().getHostname());
                 memberAttributeConfig.setStringAttribute(HazelcastClusterNodeInfo.NODE_ID_ATTRIBUTE, XMPPServer.getInstance().getNodeID().toString());
