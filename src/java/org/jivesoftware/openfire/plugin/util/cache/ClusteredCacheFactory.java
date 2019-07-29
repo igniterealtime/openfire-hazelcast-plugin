@@ -423,7 +423,7 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
             try {
                 final Future<T> future = hazelcast.getExecutorService(HAZELCAST_EXECUTOR_SERVICE_NAME).submitToMember(new CallableTask<>(task), member);
                 result = future.get(MAX_CLUSTER_EXECUTION_TIME, TimeUnit.SECONDS);
-                logger.debug("DistributedTask result: " + (result == null ? "null" : result));
+                logger.trace("DistributedTask result: " + (result == null ? "null" : result));
             } catch (final TimeoutException te) {
                 logger.error("Failed to execute cluster task within " + MAX_CLUSTER_EXECUTION_TIME + " seconds", te);
             } catch (final Exception e) {
@@ -555,7 +555,8 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
         @Override
         public V call() {
             task.run();
-            logger.debug("CallableTask[" + task.getClass().getName() + "] result: " + task.getResult());
+            if (logger.isTraceEnabled())
+                logger.trace("CallableTask[{}] result: {}", task.getClass().getName(), task.getResult());
             return task.getResult();
         }
     }
