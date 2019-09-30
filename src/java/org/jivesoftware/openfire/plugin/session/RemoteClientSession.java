@@ -51,11 +51,6 @@ public class RemoteClientSession extends RemoteSession implements ClientSession 
 
     private long initialized = -1;
 
-/*
-*Changed for OF-1868 
-*/   
-    //private boolean hasRequestedBlocklist;
-
     public RemoteClientSession(byte[] nodeID, JID address) {
         super(nodeID, address);
     }
@@ -189,19 +184,7 @@ public class RemoteClientSession extends RemoteSession implements ClientSession 
 */
     @Override
     public boolean hasRequestedBlocklist()
-    {
-        /*// After it's determined that a session has requested a blocklist, this value will never revert back to false.
-        // It's safe to skip the remote operation here.
-        if (hasRequestedBlocklist) {
-            return true;
-        }
-
-        final ClusterTask task = getRemoteSessionTask(RemoteSessionTask.Operation.hasRequestedBlocklist);
-        final Object result = doSynchronousClusterTask(task);
-        hasRequestedBlocklist = result != null && (Boolean) result;
-
-        return hasRequestedBlocklist;*/
-
+    {    
         Cache<String,ClientSessionInfo> cache = SessionManager.getInstance().getSessionInfoCache();
         ClientSessionInfo sessionInfo = cache.get(getAddress().toString());        
         return sessionInfo != null && sessionInfo.hasRequestedBlocklist();
