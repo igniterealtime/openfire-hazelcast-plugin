@@ -40,13 +40,21 @@ import java.io.ObjectOutput;
  *
  * @author Gaston Dombiak
  */
+
+/*
+* Changed for OF-1868 
+* Openfire Repo has to be updated first, before this fix could be compiled, because 
+* org.jivesoftware.openfire.session.ClientSessionInfo has changed too this class is depending on. 
+*/
+
 public class RemoteClientSession extends RemoteSession implements ClientSession {
 
     private long initialized = -1;
 
-    private boolean messageCarbonsEnabled;
-
-    private boolean hasRequestedBlocklist;
+/*
+*Changed for OF-1868 
+*/   
+    //private boolean hasRequestedBlocklist;
 
     public RemoteClientSession(byte[] nodeID, JID address) {
         super(nodeID, address);
@@ -157,20 +165,32 @@ public class RemoteClientSession extends RemoteSession implements ClientSession 
         return result == null ? 0 : (Integer) result;
     }
 
+/*
+*Changed for OF-1868 
+*/
     @Override
     public boolean isMessageCarbonsEnabled() {
-        return messageCarbonsEnabled;
+        //get the flag from clustered session cache instead of local variable
+        Cache<String,ClientSessionInfo> cache = SessionManager.getInstance().getSessionInfoCache();
+	ClientSessionInfo sessionInfo = cache.get(getAddress().toString());
+	return sessionInfo != null && sessionInfo.isMessageCarbonsEnabled();
     }
 
+/*
+*Changed for OF-1868 
+*/
     @Override
     public void setMessageCarbonsEnabled(boolean enabled) {
-        this.messageCarbonsEnabled = enabled;
+        doClusterTask(new SetMessageCarbonsTask(address, enabled)); //cluster the flag to other member ndoes
     }
 
+/*
+*Changed for OF-1868 
+*/
     @Override
     public boolean hasRequestedBlocklist()
     {
-        // After it's determined that a session has requested a blocklist, this value will never revert back to false.
+        /*// After it's determined that a session has requested a blocklist, this value will never revert back to false.
         // It's safe to skip the remote operation here.
         if (hasRequestedBlocklist) {
             return true;
@@ -180,14 +200,20 @@ public class RemoteClientSession extends RemoteSession implements ClientSession 
         final Object result = doSynchronousClusterTask(task);
         hasRequestedBlocklist = result != null && (Boolean) result;
 
-        return hasRequestedBlocklist;
+        return hasRequestedBlocklist;*/
+
+        Cache<String,ClientSessionInfo> cache = SessionManager.getInstance().getSessionInfoCache();
+        ClientSessionInfo sessionInfo = cache.get(getAddress().toString());        
+        return sessionInfo != null && sessionInfo.hasRequestedBlocklist();
     }
 
+/*
+*Added for OF-1868 
+*/
     @Override
     public void setHasRequestedBlocklist( final boolean hasRequestedBlocklist )
     {
-        // This is suspicious. Why would this be called on a non-local client session?
-        this.hasRequestedBlocklist = hasRequestedBlocklist;
+        doClusterTask(new SetBlockListTask(address,hasRequestedBlocklist)); //cluster flag to other member nodes
     }
 
     RemoteSessionTask getRemoteSessionTask(RemoteSessionTask.Operation operation) {
@@ -310,4 +336,64 @@ public class RemoteClientSession extends RemoteSession implements ClientSession 
             initialized = ExternalizableUtil.getInstance().readBoolean(in);
         }
     }
+
+/*
+*Addes for OF-1868 
+*/
+	private static class SetMessageCarbonsTask extends ClientSessionTask {
+		private boolean enabled;
+
+		public SetMessageCarbonsTask() {
+			super();
+		}
+
+		protected SetMessageCarbonsTask(JID address, boolean enabled) {
+			super(address, null);
+			this.enabled = enabled;
+		}
+
+		public void run() {
+			((ClientSession) getSession()).setMessageCarbonsEnabled(enabled);
+		}
+
+		public void writeExternal(ObjectOutput out) throws IOException {
+			super.writeExternal(out);
+			ExternalizableUtil.getInstance().writeBoolean(out, enabled);
+		}
+
+		public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
+			super.readExternal(in);
+			enabled = ExternalizableUtil.getInstance().readBoolean(in);
+		}
+	}
+	
+/*
+*Addes for OF-1868 
+*/
+	private static class SetBlockListTask extends ClientSessionTask {
+		private boolean enabled;
+
+		public SetBlockListTask() {
+			super();
+		}
+
+		protected SetBlockListTask(JID address, boolean enabled) {
+			super(address, null);
+			this.enabled = enabled;
+		}
+
+		public void run() {
+			((ClientSession) getSession()).setHasRequestedBlocklist(enabled);
+		}
+
+		public void writeExternal(ObjectOutput out) throws IOException {
+			super.writeExternal(out);
+			ExternalizableUtil.getInstance().writeBoolean(out, enabled);
+		}
+
+		public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
+			super.readExternal(in);
+			enabled = ExternalizableUtil.getInstance().readBoolean(in);
+		}
+	}
 }
