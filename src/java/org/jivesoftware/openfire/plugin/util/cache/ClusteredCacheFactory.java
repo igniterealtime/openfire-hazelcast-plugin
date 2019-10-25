@@ -234,16 +234,16 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
         }
         // Determine the time to live. Note that in Hazelcast 0 means "forever", not -1
         final long openfireLifetimeInMilliseconds = CacheFactory.getMaxCacheLifetime(name);
-        final int hazelcastLifetimeInSeconds = openfireLifetimeInMilliseconds < 0 ? 0 : (int) (openfireLifetimeInMilliseconds / 1000);
-        // Determine the max cache size. Note that in Hazelcast the max cache size must be positive
-        final long openfireMaxCacheSize = CacheFactory.getMaxCacheSize(name);
-        final int hazelcastMaxCacheSize = openfireMaxCacheSize < 0 ? Integer.MAX_VALUE : (int) openfireMaxCacheSize;
+        final int hazelcastLifetimeInSeconds = openfireLifetimeInMilliseconds < 0 ? 0 : Math.max((int) (openfireLifetimeInMilliseconds / 1000), 1);
+        // Determine the max cache size. Note that in Hazelcast the max cache size must be positive and is in megabytes
+        final long openfireMaxCacheSizeInBytes = CacheFactory.getMaxCacheSize(name);
+        final int hazelcastMaxCacheSizeInMegaBytes = openfireMaxCacheSizeInBytes < 0 ? Integer.MAX_VALUE : Math.max((int) openfireMaxCacheSizeInBytes / 1024 / 1024, 1);
         // It's only possible to create a dynamic config if a static one doesn't already exist
         final MapConfig staticConfig = hazelcast.getConfig().getMapConfigOrNull(name);
         if (staticConfig == null) {
             final MapConfig dynamicConfig = new MapConfig(name);
             dynamicConfig.setTimeToLiveSeconds(hazelcastLifetimeInSeconds);
-            dynamicConfig.setMaxSizeConfig(new MaxSizeConfig(hazelcastMaxCacheSize, MaxSizeConfig.MaxSizePolicy.USED_HEAP_SIZE));
+            dynamicConfig.setMaxSizeConfig(new MaxSizeConfig(hazelcastMaxCacheSizeInMegaBytes, MaxSizeConfig.MaxSizePolicy.USED_HEAP_SIZE));
             logger.debug("Creating dynamic map config for cache={}, dynamicConfig={}", name, dynamicConfig);
             hazelcast.getConfig().addMapConfig(dynamicConfig);
         } else {
