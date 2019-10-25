@@ -148,9 +148,9 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
     }
 
     @Override
-    public int getCacheSize() {
+    public long getCacheSize() {
         final LocalMapStats stats = map.getLocalMapStats();
-        return (int) (stats.getOwnedEntryMemoryCost() + stats.getBackupEntryMemoryCost());
+        return stats.getOwnedEntryMemoryCost() + stats.getBackupEntryMemoryCost();
     }
 
     @Override
@@ -159,7 +159,7 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
     }
 
     @Override
-    public void setMaxCacheSize(final int maxSize) {
+    public void setMaxCacheSize(final long maxSize) {
         CacheFactory.setMaxSizeProperty(getName(), maxSize);
     }
 
