@@ -38,7 +38,7 @@ import com.hazelcast.monitor.LocalMapStats;
 public class ClusteredCache<K extends Serializable, V extends Serializable> implements Cache<K, V> {
 
     private static final Logger logger = LoggerFactory.getLogger(ClusteredCache.class);
-    
+
     private final Set<String> listeners = ConcurrentHashMap.newKeySet();
 
     /**
@@ -148,7 +148,12 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
     }
 
     @Override
-    public long getCacheSize() {
+    public int getCacheSize() {
+        return (int) getLongCacheSize();
+    }
+
+    @Override
+    public long getLongCacheSize() {
         final LocalMapStats stats = map.getLocalMapStats();
         return stats.getOwnedEntryMemoryCost() + stats.getBackupEntryMemoryCost();
     }
@@ -156,6 +161,11 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
     @Override
     public long getMaxCacheSize() {
         return CacheFactory.getMaxCacheSize(getName());
+    }
+
+    @Override
+    public void setMaxCacheSize(int i) {
+        setMaxCacheSize((long) i);
     }
 
     @Override
