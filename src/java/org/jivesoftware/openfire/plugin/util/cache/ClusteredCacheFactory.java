@@ -475,7 +475,12 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
                 // current size, max size, num elements, cache
                 // hits, cache misses.
                 final long[] info = new long[5];
-                info[0] = cache.getCacheSize();
+                if(cache instanceof ClusteredCache) {
+                    info[0] = ((ClusteredCache)cache).getLongCacheSize();
+                } else {
+                    // Cache.getLongCacheSize was introduced in OF 4.5, so use the old API for comparability for now
+                    info[0] = cache.getCacheSize();
+                }
                 info[1] = cache.getMaxCacheSize();
                 info[2] = cache.size();
                 info[3] = cache.getCacheHits();
