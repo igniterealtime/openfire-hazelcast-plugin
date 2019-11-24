@@ -160,28 +160,19 @@ public class RemoteClientSession extends RemoteSession implements ClientSession 
         return result == null ? 0 : (Integer) result;
     }
 
-/*
-*Changed for OF-1868 
-*/
     @Override
     public boolean isMessageCarbonsEnabled() {
         //get the flag from clustered session cache instead of local variable
         Cache<String,ClientSessionInfo> cache = SessionManager.getInstance().getSessionInfoCache();
-	ClientSessionInfo sessionInfo = cache.get(getAddress().toString());
-	return sessionInfo != null && sessionInfo.isMessageCarbonsEnabled();
+		ClientSessionInfo sessionInfo = cache.get(getAddress().toString());
+		return sessionInfo != null && sessionInfo.isMessageCarbonsEnabled();
     }
 
-/*
-*Changed for OF-1868 
-*/
     @Override
     public void setMessageCarbonsEnabled(boolean enabled) {
         doClusterTask(new SetMessageCarbonsTask(address, enabled)); //cluster the flag to other member ndoes
     }
 
-/*
-*Changed for OF-1868 
-*/
     @Override
     public boolean hasRequestedBlocklist()
     {    
@@ -190,9 +181,6 @@ public class RemoteClientSession extends RemoteSession implements ClientSession 
         return sessionInfo != null && sessionInfo.hasRequestedBlocklist();
     }
 
-/*
-*Added for OF-1868 
-*/
     @Override
     public void setHasRequestedBlocklist( final boolean hasRequestedBlocklist )
     {
@@ -288,7 +276,6 @@ public class RemoteClientSession extends RemoteSession implements ClientSession 
             activeList = ExternalizableUtil.getInstance().readBoolean(in);
             if (ExternalizableUtil.getInstance().readBoolean(in)) {
                 listName = ExternalizableUtil.getInstance().readSafeUTF(in);
-
             }
         }
     }
@@ -320,9 +307,6 @@ public class RemoteClientSession extends RemoteSession implements ClientSession 
         }
     }
 
-/*
-*Addes for OF-1868 
-*/
 	private static class SetMessageCarbonsTask extends ClientSessionTask {
 		private boolean enabled;
 
@@ -349,10 +333,7 @@ public class RemoteClientSession extends RemoteSession implements ClientSession 
 			enabled = ExternalizableUtil.getInstance().readBoolean(in);
 		}
 	}
-	
-/*
-*Addes for OF-1868 
-*/
+
 	private static class SetBlockListTask extends ClientSessionTask {
 		private boolean enabled;
 
