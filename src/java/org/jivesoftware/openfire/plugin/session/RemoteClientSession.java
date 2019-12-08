@@ -40,13 +40,10 @@ import java.io.ObjectOutput;
  *
  * @author Gaston Dombiak
  */
+
 public class RemoteClientSession extends RemoteSession implements ClientSession {
 
     private long initialized = -1;
-
-    private boolean messageCarbonsEnabled;
-
-    private boolean hasRequestedBlocklist;
 
     public RemoteClientSession(byte[] nodeID, JID address) {
         super(nodeID, address);
@@ -159,35 +156,28 @@ public class RemoteClientSession extends RemoteSession implements ClientSession 
 
     @Override
     public boolean isMessageCarbonsEnabled() {
-        return messageCarbonsEnabled;
+        Cache<String,ClientSessionInfo> cache = SessionManager.getInstance().getSessionInfoCache();
+		ClientSessionInfo sessionInfo = cache.get(getAddress().toString());
+		return sessionInfo != null && sessionInfo.isMessageCarbonsEnabled();
     }
 
     @Override
     public void setMessageCarbonsEnabled(boolean enabled) {
-        this.messageCarbonsEnabled = enabled;
+        doClusterTask(new SetMessageCarbonsTask(address, enabled)); //cluster the flag to other member ndoes
     }
 
     @Override
     public boolean hasRequestedBlocklist()
-    {
-        // After it's determined that a session has requested a blocklist, this value will never revert back to false.
-        // It's safe to skip the remote operation here.
-        if (hasRequestedBlocklist) {
-            return true;
-        }
-
-        final ClusterTask task = getRemoteSessionTask(RemoteSessionTask.Operation.hasRequestedBlocklist);
-        final Object result = doSynchronousClusterTask(task);
-        hasRequestedBlocklist = result != null && (Boolean) result;
-
-        return hasRequestedBlocklist;
+    {    
+        Cache<String,ClientSessionInfo> cache = SessionManager.getInstance().getSessionInfoCache();
+        ClientSessionInfo sessionInfo = cache.get(getAddress().toString());        
+        return sessionInfo != null && sessionInfo.hasRequestedBlocklist();
     }
 
     @Override
     public void setHasRequestedBlocklist( final boolean hasRequestedBlocklist )
     {
-        // This is suspicious. Why would this be called on a non-local client session?
-        this.hasRequestedBlocklist = hasRequestedBlocklist;
+        doClusterTask(new SetBlockListTask(address,hasRequestedBlocklist)); //cluster flag to other member nodes
     }
 
     RemoteSessionTask getRemoteSessionTask(RemoteSessionTask.Operation operation) {
@@ -279,7 +269,6 @@ public class RemoteClientSession extends RemoteSession implements ClientSession 
             activeList = ExternalizableUtil.getInstance().readBoolean(in);
             if (ExternalizableUtil.getInstance().readBoolean(in)) {
                 listName = ExternalizableUtil.getInstance().readSafeUTF(in);
-
             }
         }
     }
@@ -310,4 +299,58 @@ public class RemoteClientSession extends RemoteSession implements ClientSession 
             initialized = ExternalizableUtil.getInstance().readBoolean(in);
         }
     }
+
+	private static class SetMessageCarbonsTask extends ClientSessionTask {
+		private boolean enabled;
+
+		public SetMessageCarbonsTask() {
+			super();
+		}
+
+		protected SetMessageCarbonsTask(JID address, boolean enabled) {
+			super(address, null);
+			this.enabled = enabled;
+		}
+
+		public void run() {
+			((ClientSession) getSession()).setMessageCarbonsEnabled(enabled);
+		}
+
+		public void writeExternal(ObjectOutput out) throws IOException {
+			super.writeExternal(out);
+			ExternalizableUtil.getInstance().writeBoolean(out, enabled);
+		}
+
+		public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
+			super.readExternal(in);
+			enabled = ExternalizableUtil.getInstance().readBoolean(in);
+		}
+	}
+
+	private static class SetBlockListTask extends ClientSessionTask {
+		private boolean enabled;
+
+		public SetBlockListTask() {
+			super();
+		}
+
+		protected SetBlockListTask(JID address, boolean enabled) {
+			super(address, null);
+			this.enabled = enabled;
+		}
+
+		public void run() {
+			((ClientSession) getSession()).setHasRequestedBlocklist(enabled);
+		}
+
+		public void writeExternal(ObjectOutput out) throws IOException {
+			super.writeExternal(out);
+			ExternalizableUtil.getInstance().writeBoolean(out, enabled);
+		}
+
+		public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
+			super.readExternal(in);
+			enabled = ExternalizableUtil.getInstance().readBoolean(in);
+		}
+	}
 }
