@@ -41,12 +41,6 @@ import java.io.ObjectOutput;
  * @author Gaston Dombiak
  */
 
-/*
-* Changed for OF-1868 
-* Openfire Repo has to be updated first, before this fix could be compiled, because 
-* org.jivesoftware.openfire.session.ClientSessionInfo has changed too this class is depending on. 
-*/
-
 public class RemoteClientSession extends RemoteSession implements ClientSession {
 
     private long initialized = -1;
@@ -162,7 +156,6 @@ public class RemoteClientSession extends RemoteSession implements ClientSession 
 
     @Override
     public boolean isMessageCarbonsEnabled() {
-        //get the flag from clustered session cache instead of local variable
         Cache<String,ClientSessionInfo> cache = SessionManager.getInstance().getSessionInfoCache();
 		ClientSessionInfo sessionInfo = cache.get(getAddress().toString());
 		return sessionInfo != null && sessionInfo.isMessageCarbonsEnabled();
