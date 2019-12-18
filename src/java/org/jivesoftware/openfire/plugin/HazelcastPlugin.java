@@ -18,15 +18,12 @@ package org.jivesoftware.openfire.plugin;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.UUID;
 
 import org.jivesoftware.openfire.XMPPServer;
 import org.jivesoftware.openfire.cluster.ClusterManager;
-import org.jivesoftware.openfire.cluster.NodeID;
 import org.jivesoftware.openfire.container.Plugin;
 import org.jivesoftware.openfire.container.PluginManager;
 import org.jivesoftware.openfire.container.PluginManagerListener;
@@ -44,17 +41,11 @@ import org.slf4j.LoggerFactory;
  */
 public class HazelcastPlugin implements Plugin {
 
+    public static final String PLUGIN_NAME = "Hazelcast Plugin"; // Exact match to plugin.xml
     private static final Logger LOGGER = LoggerFactory.getLogger(HazelcastPlugin.class);
 
     @Override
     public void initializePlugin(final PluginManager manager, final File pluginDirectory) {
-
-        if (XMPPServer.getInstance().getNodeID().equals(new byte[0])) {
-            // TODO: (Greg 2019-03-14) Remove this when minServerVersion is 4.4.0 - that version does not require the node ID to be set
-            final NodeID nodeID = NodeID.getInstance(UUID.randomUUID().toString().getBytes(StandardCharsets.UTF_8));
-            LOGGER.info("Setting the XMPPServer node id once and for all to {}", nodeID);
-            XMPPServer.getInstance().setNodeID(nodeID);
-        }
 
         LOGGER.info("Waiting for other plugins to initialize before initializing clustering");
         manager.addPluginManagerListener(new PluginManagerListener() {
@@ -68,22 +59,9 @@ public class HazelcastPlugin implements Plugin {
 
     private void initializeClustering(final File hazelcastPluginDirectory) {
         LOGGER.info("All plugins have initialized; initializing clustering");
-        // Check if another cluster is installed and stop loading this plugin if found
-        final String openfireHome = JiveGlobals.getHomeDirectory();
-        final File pluginDir = new File(openfireHome, "plugins");
-        final File[] jars = pluginDir.listFiles(pathname -> {
-            final String fileName = pathname.getName().toLowerCase();
-            return (fileName.equalsIgnoreCase("enterprise.jar") ||
-                    fileName.equalsIgnoreCase("coherence.jar"));
-        });
-        if (jars != null && jars.length > 0) {
-            // Do not load this plugin if a conflicting implementation exists
-            LOGGER.warn("Conflicting clustering plugins found; remove Coherence and/or Enterprise jar files");
-            return;
-        }
 
         try {
-            final Path pathToLocalHazelcastConfig = Paths.get(openfireHome, "conf/hazelcast-local-config.xml");
+            final Path pathToLocalHazelcastConfig = Paths.get(JiveGlobals.getHomeDirectory(), "conf/hazelcast-local-config.xml");
             if (!Files.exists(pathToLocalHazelcastConfig)) {
                 Files.copy(Paths.get(hazelcastPluginDirectory.getAbsolutePath(), "classes/hazelcast-local-config.template.xml"), pathToLocalHazelcastConfig);
             }

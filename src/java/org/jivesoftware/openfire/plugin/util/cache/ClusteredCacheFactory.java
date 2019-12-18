@@ -250,8 +250,7 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
             logger.debug("Static configuration already exists for cache={}, staticConfig={}", name, staticConfig);
         }
         // TODO: Better genericize this method in CacheFactoryStrategy so we can stop suppressing this warning
-        @SuppressWarnings("unchecked")
-        final ClusteredCache clusteredCache = new ClusteredCache(name, hazelcast.getMap(name));
+        @SuppressWarnings("unchecked") final ClusteredCache clusteredCache = new ClusteredCache(name, hazelcast.getMap(name));
         return clusteredCache;
     }
 
@@ -475,12 +474,7 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
                 // current size, max size, num elements, cache
                 // hits, cache misses.
                 final long[] info = new long[5];
-                if(cache instanceof ClusteredCache) {
-                    info[0] = ((ClusteredCache)cache).getLongCacheSize();
-                } else {
-                    // Cache.getLongCacheSize was introduced in OF 4.5, so use the old API for comparability for now
-                    info[0] = cache.getCacheSize();
-                }
+                info[0] = cache.getLongCacheSize();
                 info[1] = cache.getMaxCacheSize();
                 info[2] = cache.size();
                 info[3] = cache.getCacheHits();
@@ -503,17 +497,16 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
             cache = ((CacheWrapper) cache).getWrappedCache();
         }
         // TODO: Update CacheFactoryStrategy so the signature is getLock(final Serializable key, Cache<Serializable, Serializable> cache)
-        @SuppressWarnings("unchecked")
-        final ClusterLock clusterLock = new ClusterLock((Serializable) key, (ClusteredCache<Serializable, ?>) cache);
+        @SuppressWarnings("unchecked") final ClusterLock clusterLock = new ClusterLock((Serializable) key, (ClusteredCache<Serializable, ?>) cache);
         return clusterLock;
     }
 
     private static class ClusterLock implements Lock {
 
         private final Serializable key;
-        private final ClusteredCache<Serializable,?> cache;
+        private final ClusteredCache<Serializable, ?> cache;
 
-        ClusterLock(final Serializable key, final ClusteredCache<Serializable,?> cache) {
+        ClusterLock(final Serializable key, final ClusteredCache<Serializable, ?> cache) {
             this.key = key;
             this.cache = cache;
         }
