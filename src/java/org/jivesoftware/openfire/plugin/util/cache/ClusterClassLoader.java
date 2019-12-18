@@ -31,6 +31,7 @@ import org.jivesoftware.openfire.container.PluginClassLoader;
 import org.jivesoftware.openfire.container.PluginManager;
 import org.jivesoftware.openfire.plugin.HazelcastPlugin;
 import org.jivesoftware.util.JiveGlobals;
+import org.jivesoftware.util.SystemProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,9 +55,12 @@ public class ClusterClassLoader extends ClassLoader {
 
     private static Logger logger = LoggerFactory.getLogger(ClusterClassLoader.class);
 
-    private static final String HAZELCAST_CONFIG_DIR = JiveGlobals.getProperty(
-        "hazelcast.config.xml.directory", JiveGlobals.getHomeDirectory()
-            + "/conf");
+    private static final SystemProperty<String> HAZELCAST_CONFIG_DIR = SystemProperty.Builder.ofType(String.class)
+        .setKey("hazelcast.config.xml.directory")
+        .setDefaultValue(JiveGlobals.getHomeDirectory() + "/conf")
+        .setDynamic(false)
+        .setPlugin(HazelcastPlugin.PLUGIN_NAME)
+        .build();
     private static final PluginManager pluginManager = XMPPServer.getInstance().getPluginManager();
 
     private final PluginClassLoader hazelcastClassloader;
@@ -67,12 +71,12 @@ public class ClusterClassLoader extends ClassLoader {
         hazelcastClassloader = pluginManager.getPluginClassloader(plugin);
 
         // this is meant to allow loading configuration files from outside the plugin JAR file
-        File confFolder = new File(HAZELCAST_CONFIG_DIR);
+        File confFolder = new File(HAZELCAST_CONFIG_DIR.getValue());
         try {
             logger.debug("Adding conf folder {}", confFolder);
             hazelcastClassloader.addURLFile(confFolder.toURI().toURL());
         } catch (MalformedURLException e) {
-            logger.error("Error adding folder {} to classpath {}", HAZELCAST_CONFIG_DIR, e.getMessage());
+            logger.error("Error adding folder {} to classpath {}", HAZELCAST_CONFIG_DIR.getValue(), e.getMessage());
         }
     }
 
