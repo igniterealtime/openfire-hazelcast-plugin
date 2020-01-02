@@ -587,9 +587,14 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
 
         @Override
         public V call() {
-            task.run();
-            logger.trace("CallableTask[{}] result: {}", task.getClass().getName(), task.getResult());
-            return task.getResult();
+            try {
+                task.run();
+                logger.trace("CallableTask[{}] result: {}", task.getClass().getName(), task.getResult());
+                return task.getResult();
+            } catch (final Exception e) {
+                logger.error("Unexpected exception running CallableTask[{}]", task.getClass().getName(), e);
+                throw e;
+            }
         }
     }
 
