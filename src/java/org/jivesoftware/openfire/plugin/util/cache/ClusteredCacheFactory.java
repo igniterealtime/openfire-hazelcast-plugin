@@ -592,7 +592,7 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
                 logger.trace("CallableTask[{}] result: {}", task.getClass().getName(), task.getResult());
                 return task.getResult();
             } catch (final Exception e) {
-                logger.error("Unexpected exception running cluster task {}", task.getClass().getName(), e);
+                logger.error("Unexpected exception running CallableTask[{}]", task.getClass().getName(), e);
                 throw e;
             }
         }
