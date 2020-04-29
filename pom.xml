@@ -44,7 +44,12 @@
         <dependency>
             <groupId>com.hazelcast</groupId>
             <artifactId>hazelcast</artifactId>
-            <version>3.11.1</version>
+            <version>3.11.6</version>
+        </dependency>
+        <dependency>
+            <groupId>com.ikentoo</groupId>
+            <artifactId>hazelcast-aws-ecs</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
         </dependency>
     </dependencies>
 
