@@ -44,12 +44,14 @@
         <dependency>
             <groupId>com.hazelcast</groupId>
             <artifactId>hazelcast</artifactId>
-            <version>3.11.6</version>
+            <version>3.11.2</version>
         </dependency>
         <dependency>
-            <groupId>com.ikentoo</groupId>
+            <groupId>com.lightspeed-hospitality</groupId>
             <artifactId>hazelcast-aws-ecs</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
+            <version>0.0.1</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/src/resources/hazelcast-aws-ecs-0.0.1-SNAPSHOT.jar</systemPath>
         </dependency>
     </dependencies>
 
