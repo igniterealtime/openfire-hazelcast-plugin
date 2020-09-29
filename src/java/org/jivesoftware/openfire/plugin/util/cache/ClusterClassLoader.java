@@ -38,13 +38,13 @@ import org.slf4j.LoggerFactory;
 /**
  * Class loader to be used by Openfire to load classes that live in the Hazelcast plugin,
  * the Openfire core and also classes defined in other plugins. With this new class loader
- * plugins can now make use of hazelcast.<p>
+ * plugins can now make use of hazelcast.
  * <p>
  * However, there is a catch with this class loader. Plugins that define the same class name
  * (i.e. package and class name) will have a problem if they try to send that class through
  * the cluster. Hazelcast will deserialize the class and will use the first class definition
- * found in the list of plugins.<p>
- * <p>
+ * found in the list of plugins.
+ * </p>
  * The sequence of search for this class loader is first check the hazelcast plugin that
  * includes checking the Openfire core. If not found then try with the other plugins.
  *

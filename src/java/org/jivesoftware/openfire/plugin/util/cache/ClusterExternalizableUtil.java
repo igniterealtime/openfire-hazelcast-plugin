@@ -218,7 +218,7 @@ public class ClusterExternalizableUtil implements ExternalizableUtilStrategy {
 
     /**
      * Writes a collection of Externalizable objects. The collection passed as a parameter
-     * must be a collection and not a <tt>null</null> value.
+     * must be a collection and not a <tt>null</tt> value.
      *
      * @param out   the output stream.
      * @param value the collection of Externalizable objects. This value must not be null.
@@ -230,7 +230,7 @@ public class ClusterExternalizableUtil implements ExternalizableUtilStrategy {
 
     /**
      * Writes a collection of Serializable objects. The collection passed as a parameter
-     * must be a collection and not a <tt>null</null> value.
+     * must be a collection and not a <tt>null</tt> value.
      *
      * @param out   the output stream.
      * @param value the collection of Serializable objects. This value must not be null.
@@ -242,7 +242,7 @@ public class ClusterExternalizableUtil implements ExternalizableUtilStrategy {
     
     /**
      * Reads a collection of Externalizable objects and adds them to the collection passed as a parameter. The
-     * collection passed as a parameter must be a collection and not a <tt>null</null> value.
+     * collection passed as a parameter must be a collection and not a <tt>null</tt> value.
      *
      * @param in the input stream.
      * @param value the collection of Externalizable objects. This value must not be null.
@@ -259,7 +259,7 @@ public class ClusterExternalizableUtil implements ExternalizableUtilStrategy {
 
     /**
      * Reads a collection of Serializable objects and adds them to the collection passed as a parameter. The
-     * collection passed as a parameter must be a collection and not a <tt>null</null> value.
+     * collection passed as a parameter must be a collection and not a <tt>null</tt> value.
      *
      * @param in the input stream.
      * @param value the collection of Serializable objects. This value must not be null.
