@@ -74,10 +74,10 @@ public class ClientSessionTask extends RemoteSessionTask {
             // The session is being hosted by other cluster node so log this unexpected case
             Cache<String, ClientRoute> usersCache = CacheFactory.createCache(RoutingTableImpl.C2S_CACHE_NAME);
             ClientRoute route = usersCache.get(address.toString());
-            NodeID nodeID = route.getNodeID();
+            byte[] nodeIDByte = route != null ? route.getNodeID().toByteArray() : new byte[0];
 
-            logger.warn("Found remote session instead of local session. JID: " + address + " found in Node: " +
-                    nodeID.toByteArray() + " and local node is: " + XMPPServer.getInstance().getNodeID().toByteArray());
+            logger.warn("Found remote session instead of local session. JID: {} found in Node: {} and local node is: {}",
+                address, nodeIDByte, XMPPServer.getInstance().getNodeID().toByteArray());
         }
         if (operation == Operation.isInitialized) {
             if (session instanceof RemoteClientSession) {
