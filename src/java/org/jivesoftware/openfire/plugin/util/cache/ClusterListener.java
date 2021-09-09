@@ -40,7 +40,6 @@ import org.jivesoftware.openfire.session.DomainPair;
 import org.jivesoftware.openfire.session.IncomingServerSession;
 import org.jivesoftware.openfire.session.RemoteSessionLocator;
 import org.jivesoftware.openfire.spi.BasicStreamIDFactory;
-import org.jivesoftware.openfire.spi.ClientRoute;
 import org.jivesoftware.openfire.spi.RoutingTableImpl;
 import org.jivesoftware.util.cache.Cache;
 import org.jivesoftware.util.cache.CacheFactory;
@@ -68,8 +67,6 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
 
     private static final Logger logger = LoggerFactory.getLogger(ClusterListener.class);
 
-    private static final int C2S_CACHE_IDX = 0;
-    private static final int ANONYMOUS_C2S_CACHE_IDX = 1;
     private static final int COMPONENT_CACHE_IDX= 2;
 
     private static final int SESSION_INFO_CACHE_IDX = 3;
@@ -80,8 +77,6 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
     /**
      * Caches stored in RoutingTable
      */
-    private final Cache<String, ClientRoute> C2SCache;
-    private final Cache<String, ClientRoute> anonymousC2SCache;
     private final Cache<DomainPair, byte[]> S2SCache;
     private final Cache<String, HashSet<NodeID>> componentsCache;
 
@@ -124,8 +119,6 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
                     new HazelcastClusterNodeInfo(member, cluster.getClusterTime()));
         }
 
-        C2SCache = CacheFactory.createCache(RoutingTableImpl.C2S_CACHE_NAME);
-        anonymousC2SCache = CacheFactory.createCache(RoutingTableImpl.ANONYMOUS_C2S_CACHE_NAME);
         S2SCache = CacheFactory.createCache(RoutingTableImpl.S2S_CACHE_NAME);
         componentsCache = CacheFactory.createCache(RoutingTableImpl.COMPONENT_CACHE_NAME);
 
@@ -175,13 +168,7 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
             allLists = insertJIDList(nodeKey);
         }
 
-        if (cacheName.equals(C2SCache.getName())) {
-            return allLists[C2S_CACHE_IDX];
-        }
-        else if (cacheName.equals(anonymousC2SCache.getName())) {
-            return allLists[ANONYMOUS_C2S_CACHE_IDX];
-        }
-        else if (cacheName.equals(componentsCache.getName())) {
+        if (cacheName.equals(componentsCache.getName())) {
             return allLists[COMPONENT_CACHE_IDX];
         }
         else if (cacheName.equals(sessionInfoCache.getName())) {
@@ -246,20 +233,11 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
 
         // TODO Consider removing each cached entry once processed instead of all at the end. Could be more error-prove.
 
-        final Set<String> registeredUsers = lookupJIDList(key, C2SCache.getName());
-        if (!registeredUsers.isEmpty()) {
-            for (final String fullJID : new ArrayList<>(registeredUsers)) {
-                final JID offlineJID = new JID(fullJID);
-                manager.removeSession(null, offlineJID, false, true);
-            }
-        }
-
-        final Set<String> anonymousUsers = lookupJIDList(key, anonymousC2SCache.getName());
-        if (!anonymousUsers.isEmpty()) {
-            for (final String fullJID : new ArrayList<>(anonymousUsers)) {
-                final JID offlineJID = new JID(fullJID);
-                manager.removeSession(null, offlineJID, true, true);
-            }
+        final Set<String> sessionInfos = lookupJIDList(key, sessionInfoCache.getName());
+        for (final String fullJID : new ArrayList<>(sessionInfos)) {
+            final JID offlineJID = new JID(fullJID);
+            manager.removeSession(null, offlineJID, false, true);
+            // TODO Fix anonymous true/false resolution
         }
 
         // Remove outgoing server sessions hosted in node that left the cluster
@@ -294,6 +272,8 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
             }
         }
 
+
+        // TODO This also happens in leftCluster of sessionmanager
         final Set<String> sessionInfo = lookupJIDList(key, sessionInfoCache.getName());
         if (!sessionInfo.isEmpty()) {
             for (final String session : new ArrayList<>(sessionInfo)) {
@@ -412,8 +392,6 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
         if (!isDone()) { // already joined
             return;
         }
-        addEntryListener(C2SCache, new CacheListener(this, C2SCache.getName()));
-        addEntryListener(anonymousC2SCache, new CacheListener(this, anonymousC2SCache.getName()));
         addEntryListener(S2SCache, new S2SCacheListener());
         addEntryListener(componentsCache, new ComponentCacheListener());
 
@@ -423,8 +401,6 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
         addEntryListener(incomingServerSessionsCache, new CacheListener(this, incomingServerSessionsCache.getName()));
 
         // Simulate insert events of existing cache content
-        simulateCacheInserts(C2SCache);
-        simulateCacheInserts(anonymousC2SCache);
         simulateCacheInserts(S2SCache);
         simulateCacheInserts(componentsCache);
         simulateCacheInserts(sessionInfoCache);
