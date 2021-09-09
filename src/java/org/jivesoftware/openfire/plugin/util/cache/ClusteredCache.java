@@ -16,12 +16,18 @@
 package org.jivesoftware.openfire.plugin.util.cache;
 
 import java.io.Serializable;
+import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
+import com.hazelcast.core.EntryEvent;
+import com.hazelcast.core.EntryListener;
+import com.hazelcast.core.MapEvent;
+import org.jivesoftware.openfire.cluster.ClusteredCacheEntryListener;
+import org.jivesoftware.openfire.cluster.NodeID;
 import org.jivesoftware.util.cache.Cache;
 import org.jivesoftware.util.cache.CacheFactory;
 import org.slf4j.Logger;
@@ -31,13 +37,15 @@ import com.hazelcast.core.IMap;
 import com.hazelcast.map.listener.MapListener;
 import com.hazelcast.monitor.LocalMapStats;
 
+import javax.annotation.Nonnull;
+
 /**
  * Clustered implementation of the Cache interface using Hazelcast.
  *
  */
 public class ClusteredCache<K extends Serializable, V extends Serializable> implements Cache<K, V> {
 
-    private static final Logger logger = LoggerFactory.getLogger(ClusteredCache.class);
+    private final Logger logger;
 
     private final Set<String> listeners = ConcurrentHashMap.newKeySet();
 
@@ -57,10 +65,71 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
     protected ClusteredCache(final String name, final IMap<K, V> cache) {
         this.map = cache;
         this.name = name;
+        logger = LoggerFactory.getLogger(ClusteredCache.class.getName() + "[cache: "+name+"]");
     }
 
     void addEntryListener(final MapListener listener) {
         listeners.add(map.addEntryListener(listener, false));
+    }
+
+    @Override
+    public String addListener(@Nonnull final ClusteredCacheEntryListener<K, V> clusteredCacheEntryListener, final boolean includeValues)
+    {
+        final EntryListener<K, V> listener = new EntryListener<K, V>() {
+            @Override
+            public void mapEvicted(MapEvent event) {
+                final NodeID nodeID = NodeID.getInstance(event.getMember().getUuid().getBytes(StandardCharsets.UTF_8));
+                logger.trace("Processing map evicted event of node '{}'", nodeID);
+                clusteredCacheEntryListener.mapEvicted(nodeID);
+            }
+
+            @Override
+            public void mapCleared(MapEvent event) {
+                final NodeID nodeID = NodeID.getInstance(event.getMember().getUuid().getBytes(StandardCharsets.UTF_8));
+                logger.trace("Processing map cleared event of node '{}'", nodeID);
+                clusteredCacheEntryListener.mapCleared(nodeID);
+            }
+
+            @Override
+            public void entryUpdated(EntryEvent event) {
+                final NodeID nodeID = NodeID.getInstance(event.getMember().getUuid().getBytes(StandardCharsets.UTF_8));
+                logger.trace("Processing entry update event of node '{}' for key '{}'", nodeID, event.getKey());
+                clusteredCacheEntryListener.entryUpdated((K) event.getKey(), (V) event.getOldValue(), (V) event.getValue(), nodeID);
+            }
+
+            @Override
+            public void entryRemoved(EntryEvent event) {
+                final NodeID nodeID = NodeID.getInstance(event.getMember().getUuid().getBytes(StandardCharsets.UTF_8));
+                logger.trace("Processing entry removed event of node '{}' for key '{}'", nodeID, event.getKey());
+                clusteredCacheEntryListener.entryRemoved((K) event.getKey(), (V) event.getOldValue(), nodeID);
+            }
+
+            @Override
+            public void entryEvicted(EntryEvent event) {
+                final NodeID nodeID = NodeID.getInstance(event.getMember().getUuid().getBytes(StandardCharsets.UTF_8));
+                logger.trace("Processing entry evicted event of node '{}' for key '{}'", nodeID, event.getKey());
+                clusteredCacheEntryListener.entryEvicted((K) event.getKey(), (V) event.getOldValue(), nodeID);
+            }
+
+            @Override
+            public void entryAdded(EntryEvent event) {
+                final NodeID nodeID = NodeID.getInstance(event.getMember().getUuid().getBytes(StandardCharsets.UTF_8));
+                logger.trace("Processing entry added event of node '{}' for key '{}'", nodeID, event.getKey());
+                clusteredCacheEntryListener.entryAdded((K) event.getKey(), (V) event.getValue(), nodeID);
+            }
+        };
+
+        final String listenerId = map.addEntryListener(listener, includeValues);
+        listeners.add(listenerId);
+        logger.debug("Added new entry listener (including values: {}) using ID: '{}'", includeValues, listenerId);
+        return listenerId;
+    }
+
+    @Override
+    public void removeListener(@Nonnull final String listenerId) {
+        logger.debug("Removing listener: '{}'", listenerId);
+        map.removeEntryListener(listenerId);
+        listeners.remove(listenerId);
     }
 
     @Override
