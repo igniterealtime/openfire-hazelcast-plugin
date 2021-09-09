@@ -88,8 +88,6 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
     /**
      * Caches stored in RoutingTable
      */
-    private final Cache<String, ClientRoute> C2SCache;
-    private final Cache<String, ClientRoute> anonymousC2SCache;
     private final Cache<DomainPair, byte[]> S2SCache;
     private final Cache<String, HashSet<NodeID>> componentsCache;
 
