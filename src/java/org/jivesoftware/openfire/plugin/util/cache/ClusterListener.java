@@ -22,7 +22,6 @@ import com.hazelcast.core.EntryListener;
 import com.hazelcast.core.LifecycleEvent;
 import com.hazelcast.core.LifecycleEvent.LifecycleState;
 import com.hazelcast.core.LifecycleListener;
-import com.hazelcast.core.MapEvent;
 import com.hazelcast.core.Member;
 import com.hazelcast.core.MemberAttributeEvent;
 import com.hazelcast.core.MembershipEvent;
@@ -39,7 +38,6 @@ import org.jivesoftware.openfire.session.ClientSessionInfo;
 import org.jivesoftware.openfire.session.IncomingServerSession;
 import org.jivesoftware.openfire.session.RemoteSessionLocator;
 import org.jivesoftware.openfire.spi.BasicStreamIDFactory;
-import org.jivesoftware.openfire.spi.RoutingTableImpl;
 import org.jivesoftware.util.cache.Cache;
 import org.jivesoftware.util.cache.CacheFactory;
 import org.jivesoftware.util.cache.CacheWrapper;
@@ -56,7 +54,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.Lock;
 
 /**
  * ClusterListener reacts to membership changes in the cluster. It takes care of cleaning up the state
@@ -66,14 +63,10 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
 
     private static final Logger logger = LoggerFactory.getLogger(ClusterListener.class);
 
-    private static final int COMPONENT_CACHE_IDX= 2;
-
     private static final int SESSION_INFO_CACHE_IDX = 3;
     private static final int COMPONENT_SESSION_CACHE_IDX = 4;
     private static final int CM_CACHE_IDX = 5;
     private static final int ISS_CACHE_IDX = 6;
-
-    private final Cache<String, HashSet<NodeID>> componentsCache;
 
     /**
      * Caches stored in SessionManager
@@ -111,8 +104,6 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
             clusterNodesInfo.put(ClusteredCacheFactory.getNodeID(member),
                     new HazelcastClusterNodeInfo(member, cluster.getClusterTime()));
         }
-
-        componentsCache = CacheFactory.createCache(RoutingTableImpl.COMPONENT_CACHE_NAME);
 
         sessionInfoCache = CacheFactory.createCache(SessionManager.C2S_INFO_CACHE_NAME);
         componentSessionsCache = CacheFactory.createCache(SessionManager.COMPONENT_SESSION_CACHE_NAME);
@@ -160,10 +151,7 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
             allLists = insertJIDList(nodeKey);
         }
 
-        if (cacheName.equals(componentsCache.getName())) {
-            return allLists[COMPONENT_CACHE_IDX];
-        }
-        else if (cacheName.equals(sessionInfoCache.getName())) {
+        if (cacheName.equals(sessionInfoCache.getName())) {
             return allLists[SESSION_INFO_CACHE_IDX];
         }
         else if (cacheName.equals(componentSessionsCache.getName())) {
@@ -232,29 +220,6 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
             // TODO Fix anonymous true/false resolution
         }
 
-        final Set<String> components = lookupJIDList(key, componentsCache.getName());
-        if (!components.isEmpty()) {
-            for (final String address : new ArrayList<>(components)) {
-                final Lock lock = CacheFactory.getLock(address, componentsCache);
-                try {
-                    lock.lock();
-                    final HashSet<NodeID> nodes = componentsCache.get(address);
-                    if (nodes != null) {
-                        nodes.remove(key);
-                        if (nodes.isEmpty()) {
-                            componentsCache.remove(address);
-                        }
-                        else {
-                            componentsCache.put(address, nodes);
-                        }
-                    }
-                } finally {
-                    lock.unlock();
-                }
-            }
-        }
-
-
         // TODO This also happens in leftCluster of sessionmanager
         final Set<String> sessionInfo = lookupJIDList(key, sessionInfoCache.getName());
         if (!sessionInfo.isEmpty()) {
@@ -299,82 +264,10 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
         // TODO Make sure that routing table has no entry referring to node that is gone
     }
 
-    /**
-     * EntryListener implementation tracks events for caches of internal/external components.
-     */
-    private class ComponentCacheListener implements EntryListener<String, Set<NodeID>> {
-
-        @Override
-        public void entryAdded(final EntryEvent<String, Set<NodeID>> event) {
-            final Set<NodeID> newValue = event.getValue();
-            if (newValue != null) {
-                for (final NodeID nodeID : newValue) {
-                    //ignore items which this node has added
-                    if (!XMPPServer.getInstance().getNodeID().equals(nodeID)) {
-                        final Set<String> sessionJIDS = lookupJIDList(nodeID, componentsCache.getName());
-                        sessionJIDS.add(event.getKey());
-                    }
-                }
-            }
-        }
-
-        @Override
-        public void entryUpdated(final EntryEvent<String, Set<NodeID>> event) {
-            // Remove any trace to the component that was added/deleted to some node
-            final String domain = event.getKey();
-            for (final Map.Entry<NodeID, Set<String>[]> entry : nodeSessions.entrySet()) {
-                // Get components hosted in this node
-                final Set<String> nodeComponents = entry.getValue()[COMPONENT_CACHE_IDX];
-                nodeComponents.remove(domain);
-            }
-            // Trace nodes hosting the component
-            entryAdded(event);
-        }
-
-        @Override
-        public void entryRemoved(final EntryEvent<String, Set<NodeID>> event) {
-            final Set<NodeID> newValue = event.getValue();
-            if (newValue != null) {
-                for (final NodeID nodeID : newValue) {
-                    //ignore items which this node has added
-                    if (!XMPPServer.getInstance().getNodeID().equals(nodeID)) {
-                        final Set<String> sessionJIDS = lookupJIDList(nodeID, componentsCache.getName());
-                        sessionJIDS.remove(event.getKey());
-                    }
-                }
-            }
-        }
-
-        @Override
-        public void entryEvicted(final EntryEvent<String, Set<NodeID>> event) {
-            entryRemoved(event);
-        }
-
-        private void mapClearedOrEvicted(final MapEvent event) {
-            final NodeID nodeID = ClusteredCacheFactory.getNodeID(event.getMember());
-            // ignore events which were triggered by this node
-            if (!XMPPServer.getInstance().getNodeID().equals(nodeID)) {
-                final Set<String> sessionJIDs = lookupJIDList(nodeID, componentsCache.getName());
-                sessionJIDs.clear();
-            }
-        }
-
-        @Override
-        public void mapEvicted(final MapEvent event) {
-            mapClearedOrEvicted(event);
-        }
-
-        @Override
-        public void mapCleared(final MapEvent event) {
-            mapClearedOrEvicted(event);
-        }
-    }
-
     synchronized void joinCluster() {
         if (!isDone()) { // already joined
             return;
         }
-        addEntryListener(componentsCache, new ComponentCacheListener());
 
         addEntryListener(sessionInfoCache, new CacheListener(this, sessionInfoCache.getName()));
         addEntryListener(componentSessionsCache, new CacheListener(this, componentSessionsCache.getName()));
@@ -382,7 +275,6 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
         addEntryListener(incomingServerSessionsCache, new CacheListener(this, incomingServerSessionsCache.getName()));
 
         // Simulate insert events of existing cache content
-        simulateCacheInserts(componentsCache);
         simulateCacheInserts(sessionInfoCache);
         simulateCacheInserts(componentSessionsCache);
         simulateCacheInserts(multiplexerSessionsCache);
