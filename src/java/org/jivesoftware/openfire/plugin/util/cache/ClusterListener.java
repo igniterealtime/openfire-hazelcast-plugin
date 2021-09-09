@@ -36,7 +36,6 @@ import org.jivesoftware.openfire.cluster.ClusterNodeInfo;
 import org.jivesoftware.openfire.cluster.NodeID;
 import org.jivesoftware.openfire.plugin.util.cluster.HazelcastClusterNodeInfo;
 import org.jivesoftware.openfire.session.ClientSessionInfo;
-import org.jivesoftware.openfire.session.DomainPair;
 import org.jivesoftware.openfire.session.IncomingServerSession;
 import org.jivesoftware.openfire.session.RemoteSessionLocator;
 import org.jivesoftware.openfire.spi.BasicStreamIDFactory;
@@ -74,10 +73,6 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
     private static final int CM_CACHE_IDX = 5;
     private static final int ISS_CACHE_IDX = 6;
 
-    /**
-     * Caches stored in RoutingTable
-     */
-    private final Cache<DomainPair, byte[]> S2SCache;
     private final Cache<String, HashSet<NodeID>> componentsCache;
 
     /**
@@ -89,8 +84,6 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
     private final Cache<String, byte[]> incomingServerSessionsCache;
 
     private final Map<NodeID, Set<String>[]> nodeSessions = new ConcurrentHashMap<>();
-
-    private final Map<NodeID, Set<DomainPair>> nodeRoutes = new ConcurrentHashMap<>();
 
     private boolean seniorClusterMember = false;
 
@@ -119,7 +112,6 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
                     new HazelcastClusterNodeInfo(member, cluster.getClusterTime()));
         }
 
-        S2SCache = CacheFactory.createCache(RoutingTableImpl.S2S_CACHE_NAME);
         componentsCache = CacheFactory.createCache(RoutingTableImpl.COMPONENT_CACHE_NAME);
 
         sessionInfoCache = CacheFactory.createCache(SessionManager.C2S_INFO_CACHE_NAME);
@@ -239,16 +231,6 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
             manager.removeSession(null, offlineJID, false, true);
             // TODO Fix anonymous true/false resolution
         }
-
-        // Remove outgoing server sessions hosted in node that left the cluster
-        final Set<DomainPair> remoteServers = nodeRoutes.get(key);
-        if (remoteServers!=null) {
-            for (final DomainPair domainPair : remoteServers) {
-                routingTable.removeServerRoute(domainPair);
-            }
-        }
-        nodeRoutes.remove(key);
-
 
         final Set<String> components = lookupJIDList(key, componentsCache.getName());
         if (!components.isEmpty()) {
@@ -392,7 +374,6 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
         if (!isDone()) { // already joined
             return;
         }
-        addEntryListener(S2SCache, new S2SCacheListener());
         addEntryListener(componentsCache, new ComponentCacheListener());
 
         addEntryListener(sessionInfoCache, new CacheListener(this, sessionInfoCache.getName()));
@@ -401,7 +382,6 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
         addEntryListener(incomingServerSessionsCache, new CacheListener(this, incomingServerSessionsCache.getName()));
 
         // Simulate insert events of existing cache content
-        simulateCacheInserts(S2SCache);
         simulateCacheInserts(componentsCache);
         simulateCacheInserts(sessionInfoCache);
         simulateCacheInserts(componentSessionsCache);
@@ -543,69 +523,6 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
         final ClusterNodeInfo priorNodeInfo = clusterNodesInfo.get(ClusteredCacheFactory.getNodeID(event.getMember()));
         clusterNodesInfo.put(ClusteredCacheFactory.getNodeID(event.getMember()),
                 new HazelcastClusterNodeInfo(event.getMember(), priorNodeInfo.getJoinedTime()));
-    }
-
-    class S2SCacheListener implements EntryListener<DomainPair, byte[]> {
-        S2SCacheListener() {
-        }
-
-        @Override
-        public void entryAdded(final EntryEvent<DomainPair, byte[]> event) {
-            handleEntryEvent(event, false);
-        }
-
-        @Override
-        public void entryUpdated(final EntryEvent<DomainPair, byte[]> event) {
-            handleEntryEvent(event, false);
-        }
-
-        @Override
-        public void entryRemoved(final EntryEvent<DomainPair, byte[]> event) {
-            handleEntryEvent(event, true);
-        }
-
-        @Override
-        public void entryEvicted(final EntryEvent<DomainPair, byte[]> event) {
-            handleEntryEvent(event, true);
-        }
-
-        private void handleEntryEvent(final EntryEvent<DomainPair, byte[]> event, final boolean removal) {
-            final NodeID nodeID = ClusteredCacheFactory.getNodeID(event.getMember());
-            // ignore events which were triggered by this node
-            if (!XMPPServer.getInstance().getNodeID().equals(nodeID)) {
-                Set<DomainPair> sessionJIDS = nodeRoutes.get(nodeID);
-                if (sessionJIDS == null) {
-                    sessionJIDS = new HashSet<>();
-                }
-                if (removal) {
-                    sessionJIDS.remove(event.getKey());
-                } else {
-                    sessionJIDS.add(event.getKey());
-                }
-            }
-        }
-
-        private void handleMapEvent(final MapEvent event) {
-            final NodeID nodeID = ClusteredCacheFactory.getNodeID(event.getMember());
-            // ignore events which were triggered by this node
-            if (!XMPPServer.getInstance().getNodeID().equals(nodeID)) {
-                final Set<DomainPair> sessionJIDS = nodeRoutes.get(nodeID);
-                if (sessionJIDS != null) {
-                    sessionJIDS.clear();
-                }
-            }
-        }
-
-        @Override
-        public void mapCleared(final MapEvent event) {
-            handleMapEvent(event);
-        }
-
-        @Override
-        public void mapEvicted(final MapEvent event) {
-            handleMapEvent(event);
-        }
-
     }
 
     boolean isClusterMember() {
