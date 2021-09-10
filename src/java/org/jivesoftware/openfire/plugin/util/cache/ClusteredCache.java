@@ -78,42 +78,42 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
         final EntryListener<K, V> listener = new EntryListener<K, V>() {
             @Override
             public void mapEvicted(MapEvent event) {
-                final NodeID nodeID = NodeID.getInstance(event.getMember().getUuid().getBytes(StandardCharsets.UTF_8));
+                final NodeID nodeID = ClusteredCacheFactory.getNodeID(event.getMember());
                 logger.trace("Processing map evicted event of node '{}'", nodeID);
                 clusteredCacheEntryListener.mapEvicted(nodeID);
             }
 
             @Override
             public void mapCleared(MapEvent event) {
-                final NodeID nodeID = NodeID.getInstance(event.getMember().getUuid().getBytes(StandardCharsets.UTF_8));
+                final NodeID nodeID = ClusteredCacheFactory.getNodeID(event.getMember());
                 logger.trace("Processing map cleared event of node '{}'", nodeID);
                 clusteredCacheEntryListener.mapCleared(nodeID);
             }
 
             @Override
             public void entryUpdated(EntryEvent event) {
-                final NodeID nodeID = NodeID.getInstance(event.getMember().getUuid().getBytes(StandardCharsets.UTF_8));
+                final NodeID nodeID = ClusteredCacheFactory.getNodeID(event.getMember());
                 logger.trace("Processing entry update event of node '{}' for key '{}'", nodeID, event.getKey());
                 clusteredCacheEntryListener.entryUpdated((K) event.getKey(), (V) event.getOldValue(), (V) event.getValue(), nodeID);
             }
 
             @Override
             public void entryRemoved(EntryEvent event) {
-                final NodeID nodeID = NodeID.getInstance(event.getMember().getUuid().getBytes(StandardCharsets.UTF_8));
+                final NodeID nodeID = ClusteredCacheFactory.getNodeID(event.getMember());
                 logger.trace("Processing entry removed event of node '{}' for key '{}'", nodeID, event.getKey());
                 clusteredCacheEntryListener.entryRemoved((K) event.getKey(), (V) event.getOldValue(), nodeID);
             }
 
             @Override
             public void entryEvicted(EntryEvent event) {
-                final NodeID nodeID = NodeID.getInstance(event.getMember().getUuid().getBytes(StandardCharsets.UTF_8));
+                final NodeID nodeID = ClusteredCacheFactory.getNodeID(event.getMember());
                 logger.trace("Processing entry evicted event of node '{}' for key '{}'", nodeID, event.getKey());
                 clusteredCacheEntryListener.entryEvicted((K) event.getKey(), (V) event.getOldValue(), nodeID);
             }
 
             @Override
             public void entryAdded(EntryEvent event) {
-                final NodeID nodeID = NodeID.getInstance(event.getMember().getUuid().getBytes(StandardCharsets.UTF_8));
+                final NodeID nodeID = ClusteredCacheFactory.getNodeID(event.getMember());
                 logger.trace("Processing entry added event of node '{}' for key '{}'", nodeID, event.getKey());
                 clusteredCacheEntryListener.entryAdded((K) event.getKey(), (V) event.getValue(), nodeID);
             }
