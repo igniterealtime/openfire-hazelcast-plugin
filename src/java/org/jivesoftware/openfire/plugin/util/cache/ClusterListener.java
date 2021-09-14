@@ -16,8 +16,6 @@
 package org.jivesoftware.openfire.plugin.util.cache;
 
 import com.hazelcast.core.Cluster;
-import com.hazelcast.core.EntryEvent;
-import com.hazelcast.core.EntryEventType;
 import com.hazelcast.core.EntryListener;
 import com.hazelcast.core.LifecycleEvent;
 import com.hazelcast.core.LifecycleEvent.LifecycleState;
@@ -26,29 +24,22 @@ import com.hazelcast.core.Member;
 import com.hazelcast.core.MemberAttributeEvent;
 import com.hazelcast.core.MembershipEvent;
 import com.hazelcast.core.MembershipListener;
-import org.jivesoftware.openfire.SessionManager;
 import org.jivesoftware.openfire.XMPPServer;
 import org.jivesoftware.openfire.cluster.ClusterManager;
 import org.jivesoftware.openfire.cluster.ClusterNodeInfo;
 import org.jivesoftware.openfire.cluster.NodeID;
 import org.jivesoftware.openfire.plugin.util.cluster.HazelcastClusterNodeInfo;
-import org.jivesoftware.openfire.session.ClientSessionInfo;
-import org.jivesoftware.openfire.session.RemoteSessionLocator;
 import org.jivesoftware.util.cache.Cache;
-import org.jivesoftware.util.cache.CacheFactory;
 import org.jivesoftware.util.cache.CacheWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.xmpp.packet.JID;
 
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -58,15 +49,6 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ClusterListener implements MembershipListener, LifecycleListener {
 
     private static final Logger logger = LoggerFactory.getLogger(ClusterListener.class);
-
-    private static final int SESSION_INFO_CACHE_IDX = 3;
-
-    /**
-     * Caches stored in SessionManager
-     */
-    private final Cache<String, ClientSessionInfo> sessionInfoCache;
-
-    private final Map<NodeID, Set<String>[]> nodeSessions = new ConcurrentHashMap<>();
 
     private boolean seniorClusterMember = false;
 
@@ -94,8 +76,6 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
             clusterNodesInfo.put(ClusteredCacheFactory.getNodeID(member),
                     new HazelcastClusterNodeInfo(member, cluster.getClusterTime()));
         }
-
-        sessionInfoCache = CacheFactory.createCache(SessionManager.C2S_INFO_CACHE_NAME);
     }
 
     private void addEntryListener(final Cache<?, ?> cache, final EntryListener listener) {
@@ -110,116 +90,14 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
     }
 
     @SuppressWarnings("unchecked")
-    private void simulateCacheInserts(final Cache<?, ?> cache) {
-        final EntryListener<?,?> entryListener = entryListeners.get(cache);
-        if (entryListener != null) {
-            if (cache instanceof CacheWrapper) {
-                final Cache wrapped = ((CacheWrapper) cache).getWrappedCache();
-                if (wrapped instanceof ClusteredCache) {
-                    final ClusteredCache clusteredCache = (ClusteredCache) wrapped;
-                    for (final Map.Entry<?, ?> entry : cache.entrySet()) {
-                        final EntryEvent event = new EntryEvent<>(
-                            clusteredCache.map.getName(),
-                            cluster.getLocalMember(),
-                            EntryEventType.ADDED.getType(),
-                            entry.getKey(),
-                            null,
-                            entry.getValue());
-                        entryListener.entryAdded(event);
-                    }
-                }
-            }
-        }
-    }
-
-    Set<String> lookupJIDList(final NodeID nodeKey, final String cacheName) {
-        Set<String>[] allLists = nodeSessions.get(nodeKey);
-        if (allLists == null) {
-            allLists = insertJIDList(nodeKey);
-        }
-
-        if (cacheName.equals(sessionInfoCache.getName())) {
-            return allLists[SESSION_INFO_CACHE_IDX];
-        }
-        else {
-            throw new IllegalArgumentException("Unknown cache name: " + cacheName);
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private Set<String>[] insertJIDList(final NodeID nodeKey) {
-        final Set<String>[] allLists =  new Set[] {
-            new HashSet<String>(),
-            new HashSet<String>(),
-            new HashSet<String>(),
-            new HashSet<String>(),
-            new HashSet<String>(),
-            new HashSet<String>(),
-            new HashSet<String>()
-        };
-        nodeSessions.put(nodeKey, allLists);
-        return allLists;
-    }
-
     private boolean isDone() {
         return done;
-    }
-
-
-    /**
-     * Executes close logic for each session hosted in the remote node that is
-     * no longer available. This logic is similar to the close listeners used by
-     * the {@link SessionManager}.<p>
-     *
-     * If the node that went down performed its own clean up logic then the other
-     * cluster nodes will have the correct state. That means that this method
-     * will not find any sessions to remove.<p>
-     *
-     * If this operation is too big and we are still in a cluster then we can
-     * distribute the work in the cluster to go faster.
-     *
-     * @param nodeIdToCleanUp the nodeIdToCleanUp that identifies the node that is no longer available.
-     */
-    private void cleanupNode(final NodeID nodeIdToCleanUp) {
-
-        logger.debug("Going to clean up node {}, which should result in route being removed from the routing table", nodeIdToCleanUp);
-
-        // TODO Fork in another process and even ask other nodes to process work
-        final RemoteSessionLocator sessionLocator = XMPPServer.getInstance().getRemoteSessionLocator();
-        final SessionManager manager = XMPPServer.getInstance().getSessionManager();
-
-        // TODO Consider removing each cached entry once processed instead of all at the end. Could be more error-prove.
-
-        final Set<String> sessionInfos = lookupJIDList(nodeIdToCleanUp, sessionInfoCache.getName());
-        for (final String fullJID : new ArrayList<>(sessionInfos)) {
-            final JID offlineJID = new JID(fullJID);
-            manager.removeSession(null, offlineJID, false, true);
-            // TODO Fix anonymous true/false resolution
-        }
-
-        // TODO This also happens in leftCluster of sessionmanager
-        final Set<String> sessionInfo = lookupJIDList(nodeIdToCleanUp, sessionInfoCache.getName());
-        if (!sessionInfo.isEmpty()) {
-            for (final String session : new ArrayList<>(sessionInfo)) {
-                sessionInfoCache.remove(session);
-                // Registered sessions will be removed
-                // by the clean up of the session info cache
-            }
-        }
-
-        nodeSessions.remove(nodeIdToCleanUp);
-        // TODO Make sure that routing table has no entry referring to node that is gone
     }
 
     synchronized void joinCluster() {
         if (!isDone()) { // already joined
             return;
         }
-
-        addEntryListener(sessionInfoCache, new CacheListener(this, sessionInfoCache.getName()));
-
-        // Simulate insert events of existing cache content
-        simulateCacheInserts(sessionInfoCache);
 
         // Trigger events
         clusterMember = true;
@@ -320,8 +198,6 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
                 e.printStackTrace();
             }
 
-            cleanupNode(nodeID);
-            
             // Remove traces of directed presences sent from local entities to handlers that no longer exist.
             // At this point c2s sessions are gone from the routing table so we can identify expired sessions
             XMPPServer.getInstance().getPresenceUpdateHandler().removedExpiredPresences();
