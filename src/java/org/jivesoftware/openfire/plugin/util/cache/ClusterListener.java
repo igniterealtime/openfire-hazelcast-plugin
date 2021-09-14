@@ -60,13 +60,11 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
     private static final Logger logger = LoggerFactory.getLogger(ClusterListener.class);
 
     private static final int SESSION_INFO_CACHE_IDX = 3;
-    private static final int COMPONENT_SESSION_CACHE_IDX = 4;
 
     /**
      * Caches stored in SessionManager
      */
     private final Cache<String, ClientSessionInfo> sessionInfoCache;
-    private final Cache<String, byte[]> componentSessionsCache;
 
     private final Map<NodeID, Set<String>[]> nodeSessions = new ConcurrentHashMap<>();
 
@@ -98,7 +96,6 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
         }
 
         sessionInfoCache = CacheFactory.createCache(SessionManager.C2S_INFO_CACHE_NAME);
-        componentSessionsCache = CacheFactory.createCache(SessionManager.COMPONENT_SESSION_CACHE_NAME);
     }
 
     private void addEntryListener(final Cache<?, ?> cache, final EntryListener listener) {
@@ -143,9 +140,6 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
 
         if (cacheName.equals(sessionInfoCache.getName())) {
             return allLists[SESSION_INFO_CACHE_IDX];
-        }
-        else if (cacheName.equals(componentSessionsCache.getName())) {
-            return allLists[COMPONENT_SESSION_CACHE_IDX];
         }
         else {
             throw new IllegalArgumentException("Unknown cache name: " + cacheName);
@@ -213,15 +207,6 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
             }
         }
 
-        final Set<String> componentSessions = lookupJIDList(nodeIdToCleanUp, componentSessionsCache.getName());
-        if (!componentSessions.isEmpty()) {
-            for (final String domain : new ArrayList<>(componentSessions)) {
-                componentSessionsCache.remove(domain);
-                // Registered subdomains of external component will be removed
-                // by the clean up of the component cache
-            }
-        }
-
         nodeSessions.remove(nodeIdToCleanUp);
         // TODO Make sure that routing table has no entry referring to node that is gone
     }
@@ -232,11 +217,9 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
         }
 
         addEntryListener(sessionInfoCache, new CacheListener(this, sessionInfoCache.getName()));
-        addEntryListener(componentSessionsCache, new CacheListener(this, componentSessionsCache.getName()));
 
         // Simulate insert events of existing cache content
         simulateCacheInserts(sessionInfoCache);
-        simulateCacheInserts(componentSessionsCache);
 
         // Trigger events
         clusterMember = true;
