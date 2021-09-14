@@ -26,18 +26,14 @@ import com.hazelcast.core.Member;
 import com.hazelcast.core.MemberAttributeEvent;
 import com.hazelcast.core.MembershipEvent;
 import com.hazelcast.core.MembershipListener;
-import org.jivesoftware.openfire.RoutingTable;
 import org.jivesoftware.openfire.SessionManager;
-import org.jivesoftware.openfire.StreamID;
 import org.jivesoftware.openfire.XMPPServer;
 import org.jivesoftware.openfire.cluster.ClusterManager;
 import org.jivesoftware.openfire.cluster.ClusterNodeInfo;
 import org.jivesoftware.openfire.cluster.NodeID;
 import org.jivesoftware.openfire.plugin.util.cluster.HazelcastClusterNodeInfo;
 import org.jivesoftware.openfire.session.ClientSessionInfo;
-import org.jivesoftware.openfire.session.IncomingServerSession;
 import org.jivesoftware.openfire.session.RemoteSessionLocator;
-import org.jivesoftware.openfire.spi.BasicStreamIDFactory;
 import org.jivesoftware.util.cache.Cache;
 import org.jivesoftware.util.cache.CacheFactory;
 import org.jivesoftware.util.cache.CacheWrapper;
@@ -65,16 +61,12 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
 
     private static final int SESSION_INFO_CACHE_IDX = 3;
     private static final int COMPONENT_SESSION_CACHE_IDX = 4;
-    private static final int CM_CACHE_IDX = 5;
-    private static final int ISS_CACHE_IDX = 6;
 
     /**
      * Caches stored in SessionManager
      */
     private final Cache<String, ClientSessionInfo> sessionInfoCache;
     private final Cache<String, byte[]> componentSessionsCache;
-    private final Cache<String, byte[]> multiplexerSessionsCache;
-    private final Cache<String, byte[]> incomingServerSessionsCache;
 
     private final Map<NodeID, Set<String>[]> nodeSessions = new ConcurrentHashMap<>();
 
@@ -107,8 +99,6 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
 
         sessionInfoCache = CacheFactory.createCache(SessionManager.C2S_INFO_CACHE_NAME);
         componentSessionsCache = CacheFactory.createCache(SessionManager.COMPONENT_SESSION_CACHE_NAME);
-        multiplexerSessionsCache = CacheFactory.createCache(SessionManager.CM_CACHE_NAME);
-        incomingServerSessionsCache = CacheFactory.createCache(SessionManager.ISS_CACHE_NAME);
     }
 
     private void addEntryListener(final Cache<?, ?> cache, final EntryListener listener) {
@@ -157,12 +147,6 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
         else if (cacheName.equals(componentSessionsCache.getName())) {
             return allLists[COMPONENT_SESSION_CACHE_IDX];
         }
-        else if (cacheName.equals(multiplexerSessionsCache.getName())) {
-            return allLists[CM_CACHE_IDX];
-        }
-        else if (cacheName.equals(incomingServerSessionsCache.getName())) {
-            return allLists[ISS_CACHE_IDX];
-        }
         else {
             throw new IllegalArgumentException("Unknown cache name: " + cacheName);
         }
@@ -200,20 +184,19 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
      * If this operation is too big and we are still in a cluster then we can
      * distribute the work in the cluster to go faster.
      *
-     * @param key the key that identifies the node that is no longer available.
+     * @param nodeIdToCleanUp the nodeIdToCleanUp that identifies the node that is no longer available.
      */
-    private void cleanupNode(final NodeID key) {
+    private void cleanupNode(final NodeID nodeIdToCleanUp) {
 
-        logger.debug("Going to clean up node {}, which should result in route being removed from the routing table", key);
+        logger.debug("Going to clean up node {}, which should result in route being removed from the routing table", nodeIdToCleanUp);
 
         // TODO Fork in another process and even ask other nodes to process work
-        final RoutingTable routingTable = XMPPServer.getInstance().getRoutingTable();
         final RemoteSessionLocator sessionLocator = XMPPServer.getInstance().getRemoteSessionLocator();
         final SessionManager manager = XMPPServer.getInstance().getSessionManager();
 
         // TODO Consider removing each cached entry once processed instead of all at the end. Could be more error-prove.
 
-        final Set<String> sessionInfos = lookupJIDList(key, sessionInfoCache.getName());
+        final Set<String> sessionInfos = lookupJIDList(nodeIdToCleanUp, sessionInfoCache.getName());
         for (final String fullJID : new ArrayList<>(sessionInfos)) {
             final JID offlineJID = new JID(fullJID);
             manager.removeSession(null, offlineJID, false, true);
@@ -221,7 +204,7 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
         }
 
         // TODO This also happens in leftCluster of sessionmanager
-        final Set<String> sessionInfo = lookupJIDList(key, sessionInfoCache.getName());
+        final Set<String> sessionInfo = lookupJIDList(nodeIdToCleanUp, sessionInfoCache.getName());
         if (!sessionInfo.isEmpty()) {
             for (final String session : new ArrayList<>(sessionInfo)) {
                 sessionInfoCache.remove(session);
@@ -230,7 +213,7 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
             }
         }
 
-        final Set<String> componentSessions = lookupJIDList(key, componentSessionsCache.getName());
+        final Set<String> componentSessions = lookupJIDList(nodeIdToCleanUp, componentSessionsCache.getName());
         if (!componentSessions.isEmpty()) {
             for (final String domain : new ArrayList<>(componentSessions)) {
                 componentSessionsCache.remove(domain);
@@ -239,28 +222,7 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
             }
         }
 
-        final Set<String> multiplexers = lookupJIDList(key, multiplexerSessionsCache.getName());
-        if (!multiplexers.isEmpty()) {
-            for (final String fullJID : new ArrayList<>(multiplexers)) {
-                multiplexerSessionsCache.remove(fullJID);
-                // c2s connections connected to node that went down will be cleaned up
-                // by the c2s logic above. If the CM went down and the node is up then
-                // connections will be cleaned up as usual
-            }
-        }
-
-        final Set<String> incomingSessions = lookupJIDList(key, incomingServerSessionsCache.getName());
-        if (!incomingSessions.isEmpty()) {
-            for (final String streamIDValue : new ArrayList<>(incomingSessions)) {
-                final StreamID streamID = BasicStreamIDFactory.createStreamID( streamIDValue );
-                final IncomingServerSession session = sessionLocator.getIncomingServerSession(key.toByteArray(), streamID);
-                // Remove all the hostnames that were registered for this server session
-                for (final String hostname : session.getValidatedDomains()) {
-                    manager.unregisterIncomingServerSession(hostname, session);
-                }
-            }
-        }
-        nodeSessions.remove(key);
+        nodeSessions.remove(nodeIdToCleanUp);
         // TODO Make sure that routing table has no entry referring to node that is gone
     }
 
@@ -271,14 +233,10 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
 
         addEntryListener(sessionInfoCache, new CacheListener(this, sessionInfoCache.getName()));
         addEntryListener(componentSessionsCache, new CacheListener(this, componentSessionsCache.getName()));
-        addEntryListener(multiplexerSessionsCache, new CacheListener(this, multiplexerSessionsCache.getName()));
-        addEntryListener(incomingServerSessionsCache, new CacheListener(this, incomingServerSessionsCache.getName()));
 
         // Simulate insert events of existing cache content
         simulateCacheInserts(sessionInfoCache);
         simulateCacheInserts(componentSessionsCache);
-        simulateCacheInserts(multiplexerSessionsCache);
-        simulateCacheInserts(incomingServerSessionsCache);
 
         // Trigger events
         clusterMember = true;
@@ -307,10 +265,6 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
         clusterMember = false;
         final boolean wasSeniorClusterMember = seniorClusterMember;
         seniorClusterMember = false;
-        // Clean up all traces. This will set all remote sessions as unavailable
-        final List<NodeID> nodeIDs = new ArrayList<>(nodeSessions.keySet());
-
-
 
         // Trigger event. Wait until the listeners have processed the event. Caches will be populated
         // again with local content.
