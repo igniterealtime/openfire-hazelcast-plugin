@@ -80,8 +80,6 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
                 if (includeEventsFromLocalNode || !XMPPServer.getInstance().getNodeID().equals(eventNodeId)) {
                     logger.trace("Processing map evicted event of node '{}'", eventNodeId);
                     clusteredCacheEntryListener.mapEvicted(eventNodeId);
-                } else {
-                    logger.trace("Not processing map evicted event because it originates from our local node");
                 }
             }
 
@@ -91,8 +89,6 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
                 if (includeEventsFromLocalNode || !XMPPServer.getInstance().getNodeID().equals(eventNodeId)) {
                     logger.trace("Processing map cleared event of node '{}'", eventNodeId);
                     clusteredCacheEntryListener.mapCleared(eventNodeId);
-                } else {
-                    logger.trace("Not processing map cleared event because it originates from our local node");
                 }
             }
 
@@ -102,8 +98,6 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
                 if (includeEventsFromLocalNode || !XMPPServer.getInstance().getNodeID().equals(eventNodeId)) {
                     logger.trace("Processing entry update event of node '{}' for key '{}'", eventNodeId, event.getKey());
                     clusteredCacheEntryListener.entryUpdated((K) event.getKey(), (V) event.getOldValue(), (V) event.getValue(), eventNodeId);
-                } else {
-                    logger.trace("Not processing entry updated event because it originates from our local node");
                 }
             }
 
@@ -113,8 +107,6 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
                 if (includeEventsFromLocalNode || !XMPPServer.getInstance().getNodeID().equals(eventNodeId)) {
                     logger.trace("Processing entry removed event of node '{}' for key '{}'", eventNodeId, event.getKey());
                     clusteredCacheEntryListener.entryRemoved((K) event.getKey(), (V) event.getOldValue(), eventNodeId);
-                } else {
-                    logger.trace("Not processing entry removed event because it originates from our local node");
                 }
             }
 
@@ -124,8 +116,6 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
                 if (includeEventsFromLocalNode || !XMPPServer.getInstance().getNodeID().equals(eventNodeId)) {
                     logger.trace("Processing entry evicted event of node '{}' for key '{}'", eventNodeId, event.getKey());
                     clusteredCacheEntryListener.entryEvicted((K) event.getKey(), (V) event.getOldValue(), eventNodeId);
-                } else {
-                    logger.trace("Not processing entry evicted event because it originates from our local node");
                 }
             }
 
@@ -135,8 +125,6 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
                 if (includeEventsFromLocalNode || !XMPPServer.getInstance().getNodeID().equals(eventNodeId)) {
                     logger.trace("Processing entry added event of node '{}' for key '{}'", eventNodeId, event.getKey());
                     clusteredCacheEntryListener.entryAdded((K) event.getKey(), (V) event.getValue(), eventNodeId);
-                } else {
-                    logger.trace("Not processing entry added event because it originates from our local node");
                 }
             }
         };
