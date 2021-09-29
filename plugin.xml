@@ -7,7 +7,6 @@
     <author>Ignite Realtime</author>
     <version>${project.version}</version>
     <date>09/29/2021</date>
-    <minServerVersion>4.5.0</minServerVersion>
-    <priorToServerVersion>4.7.0</priorToServerVersion>
+    <minServerVersion>4.7.0</minServerVersion>
     <minJavaVersion>1.8</minJavaVersion>
 </plugin>
