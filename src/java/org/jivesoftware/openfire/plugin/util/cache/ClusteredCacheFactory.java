@@ -44,8 +44,6 @@ import org.jivesoftware.openfire.cluster.ClusterManager;
 import org.jivesoftware.openfire.cluster.ClusterNodeInfo;
 import org.jivesoftware.openfire.cluster.NodeID;
 import org.jivesoftware.openfire.plugin.HazelcastPlugin;
-import org.jivesoftware.openfire.plugin.session.RemoteSessionLocator;
-import org.jivesoftware.openfire.plugin.util.cluster.ClusterPacketRouter;
 import org.jivesoftware.openfire.plugin.util.cluster.HazelcastClusterNodeInfo;
 import org.jivesoftware.util.StringUtils;
 import org.jivesoftware.util.SystemProperty;
@@ -163,10 +161,6 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
         // Set the serialization strategy to use for transmitting objects between node clusters
         serializationStrategy = ExternalizableUtil.getInstance().getStrategy();
         ExternalizableUtil.getInstance().setStrategy(new ClusterExternalizableUtil());
-        // Set session locator to use when in a cluster
-        XMPPServer.getInstance().setRemoteSessionLocator(new RemoteSessionLocator());
-        // Set packet router to use to deliver packets to remote cluster nodes
-        XMPPServer.getInstance().getRoutingTable().setRemotePacketRouter(new ClusterPacketRouter());
 
         // Store previous class loader (in case we change it)
         final ClassLoader oldLoader = Thread.currentThread().getContextClassLoader();
