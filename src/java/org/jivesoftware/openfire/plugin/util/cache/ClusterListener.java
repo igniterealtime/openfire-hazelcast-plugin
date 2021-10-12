@@ -152,7 +152,6 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
         if (event.getMember().localMember()) { // We left and re-joined the cluster
             joinCluster();
         } else {
-            ///nodePresences.put(nodeID, new ConcurrentHashMap<>());
             if(wasSenior && !isSenior) {
                 logger.warn("Recovering from split-brain; firing leftCluster()/joinedCluster() events");
                 ClusteredCacheFactory.fireLeftClusterAndWaitToComplete(Duration.ofSeconds(30));
@@ -181,10 +180,6 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
         } else {
             // Trigger event that a node left the cluster
             ClusterManager.fireLeftCluster(nodeID.toByteArray());
-
-            // Clean up directed presences sent from entities hosted in the leaving node to local entities
-            // Clean up directed presences sent to entities hosted in the leaving node from local entities
-//            cleanupDirectedPresences(nodeID);
 
             if (!seniorClusterMember && isSeniorClusterMember()) {
                 seniorClusterMember = true;
