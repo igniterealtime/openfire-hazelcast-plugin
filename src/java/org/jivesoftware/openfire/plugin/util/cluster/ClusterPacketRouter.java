@@ -17,6 +17,7 @@
 package org.jivesoftware.openfire.plugin.util.cluster;
 
 import org.jivesoftware.openfire.RemotePacketRouter;
+import org.jivesoftware.openfire.cluster.ClusterManager;
 import org.jivesoftware.util.cache.CacheFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,13 +38,16 @@ public class ClusterPacketRouter implements RemotePacketRouter {
 
     private static Logger logger = LoggerFactory.getLogger(ClusterPacketRouter.class);
 
-    public boolean routePacket(byte[] nodeID, JID receipient, Packet packet) {
+    public boolean routePacket(byte[] nodeID, JID recipient, Packet packet) {
         // Send the packet to the specified node and let the remote node deliver the packet to the recipient
         try {
-            CacheFactory.doClusterTask(new RemotePacketExecution(receipient, packet), nodeID);
+            if (!ClusterManager.isClusterMember(nodeID)) {
+                return false;
+            }
+            CacheFactory.doClusterTask(new RemotePacketExecution(recipient, packet), nodeID);
             return true;
-        } catch (IllegalStateException  e) {
-            logger.warn("Error while routing packet to remote node: " + e);
+        } catch (Exception  e) {
+            logger.warn("Error while routing packet to remote node",e);
             return false;
         }
     }
