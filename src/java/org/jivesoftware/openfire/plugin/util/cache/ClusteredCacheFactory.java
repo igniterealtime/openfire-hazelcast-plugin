@@ -16,27 +16,18 @@
 
 package org.jivesoftware.openfire.plugin.util.cache;
 
-import java.io.Serializable;
-import java.nio.charset.StandardCharsets;
-import java.text.MessageFormat;
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.Callable;
-import java.util.concurrent.Future;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
-
+import com.hazelcast.config.ClasspathXmlConfig;
+import com.hazelcast.config.Config;
+import com.hazelcast.config.MapConfig;
+import com.hazelcast.config.MaxSizeConfig;
+import com.hazelcast.config.MemberAttributeConfig;
+import com.hazelcast.config.MemcacheProtocolConfig;
+import com.hazelcast.config.NetworkConfig;
+import com.hazelcast.config.RestApiConfig;
+import com.hazelcast.core.Cluster;
+import com.hazelcast.core.Hazelcast;
+import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.core.Member;
 import org.jivesoftware.openfire.JMXManager;
 import org.jivesoftware.openfire.XMPPServer;
 import org.jivesoftware.openfire.cluster.ClusterEventListener;
@@ -57,18 +48,26 @@ import org.jivesoftware.util.cache.ExternalizableUtilStrategy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.hazelcast.config.ClasspathXmlConfig;
-import com.hazelcast.config.Config;
-import com.hazelcast.config.MapConfig;
-import com.hazelcast.config.MaxSizeConfig;
-import com.hazelcast.config.MemberAttributeConfig;
-import com.hazelcast.config.MemcacheProtocolConfig;
-import com.hazelcast.config.NetworkConfig;
-import com.hazelcast.config.RestApiConfig;
-import com.hazelcast.core.Cluster;
-import com.hazelcast.core.Hazelcast;
-import com.hazelcast.core.HazelcastInstance;
-import com.hazelcast.core.Member;
+import java.io.Serializable;
+import java.nio.charset.StandardCharsets;
+import java.text.MessageFormat;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.Future;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
 
 /**
  * CacheFactory implementation to use when using Hazelcast in cluster mode.
@@ -130,6 +129,7 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
         .build();
 
     private static final Logger logger = LoggerFactory.getLogger(ClusteredCacheFactory.class);
+    public static final String PLUGIN_NAME = "hazelcast";
 
     /**
      * Keep serialization strategy the server was using before we set our strategy. We will
@@ -350,6 +350,7 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
      */
     @Override
     public void doClusterTask(final ClusterTask<?> task) {
+
         if (cluster == null) {
             return;
         }
@@ -360,6 +361,8 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
                 members.add(member);
             }
         }
+
+
         if (!members.isEmpty()) {
             // Asynchronously execute the task on the other cluster members
             logger.debug("Executing asynchronous MultiTask: " + task.getClass().getName());
@@ -517,7 +520,7 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
 
     @Override
     public String getPluginName() {
-        return "hazelcast";
+        return PLUGIN_NAME;
     }
 
     @Override
