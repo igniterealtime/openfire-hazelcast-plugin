@@ -37,6 +37,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -158,7 +159,7 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
 
             // Let the other nodes know that we joined the cluster
             logger.debug("Done joining the cluster. Now proceed informing other nodes that we joined the cluster.");
-            CacheFactory.doClusterTask(new NewClusterMemberJoinedTask(true));
+            CacheFactory.doClusterTask(new NewClusterMemberJoinedTask());
         } else {
             if (wasSenior && !isSenior) {
                 logger.warn("Recovering from split-brain; firing leftCluster()/joinedCluster() events");
@@ -170,7 +171,7 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
 
                 // Let the other nodes know that we joined the cluster
                 logger.debug("Done joining the cluster in split brain recovery. Now proceed informing other nodes that we joined the cluster.");
-                CacheFactory.doClusterTask(new NewClusterMemberJoinedTask(true));
+                CacheFactory.doClusterTask(new NewClusterMemberJoinedTask());
             }
         }
         clusterNodesInfo.put(nodeID,
@@ -182,18 +183,33 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
      * for executing cluster tasks immediately after joining. If this wait is not performed, the cache factory may still
      * be using the 'default' strategy instead of the 'hazelcast' strategy, which leads to cluster tasks being silently
      * discarded.
+     *
+     * The method will keep trying this for 10 minutes. After that the thread is released regardless of the result.
+     *
+     * @return Boolean indicating whether the clustered cache was actually observed to be installed.
      */
-    private void waitForClusterCacheToBeInstalled() {
+    private boolean waitForClusterCacheToBeInstalled() {
+        boolean failed = false;
         if (!ClusteredCacheFactory.PLUGIN_NAME.equals(CacheFactory.getPluginName())) {
             logger.debug("This node now joined a cluster, but the cache factory has not been swapped to '{}' yet. Waiting for that to happen.", ClusteredCacheFactory.PLUGIN_NAME);
-            while (!ClusteredCacheFactory.PLUGIN_NAME.equals(CacheFactory.getPluginName())) {
+            LocalTime deadLine = LocalTime.now().plusMinutes(10L);
+            while (!ClusteredCacheFactory.PLUGIN_NAME.equals(CacheFactory.getPluginName()) && deadLine.isAfter(LocalTime.now())) {
                 try {
                     Thread.sleep(200);
                 } catch (InterruptedException e) {
+                    logger.trace("Thread was interrupted while waiting for cache strategy to change.");
+                    failed = true;
+                    break;
                 }
+            }
+            if (deadLine.isAfter(LocalTime.now())) {
+                failed = true;
+                logger.warn("Cache factory was not swapped to '{}', but still remains '{}' after a 10 minute wait. Cluster join is not guaranteed to have completed.", ClusteredCacheFactory.PLUGIN_NAME, CacheFactory.getPluginName());
             }
             logger.debug("Cache factory has been swapped to '{}'. Cluster join is considered complete.", ClusteredCacheFactory.PLUGIN_NAME);
         }
+
+        return !failed;
     }
 
     @Override
