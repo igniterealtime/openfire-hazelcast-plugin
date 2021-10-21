@@ -28,8 +28,10 @@ import org.jivesoftware.openfire.XMPPServer;
 import org.jivesoftware.openfire.cluster.ClusterManager;
 import org.jivesoftware.openfire.cluster.ClusterNodeInfo;
 import org.jivesoftware.openfire.cluster.NodeID;
+import org.jivesoftware.openfire.muc.cluster.NewClusterMemberJoinedTask;
 import org.jivesoftware.openfire.plugin.util.cluster.HazelcastClusterNodeInfo;
 import org.jivesoftware.util.cache.Cache;
+import org.jivesoftware.util.cache.CacheFactory;
 import org.jivesoftware.util.cache.CacheWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -151,19 +153,47 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
         final NodeID nodeID = ClusteredCacheFactory.getNodeID(event.getMember());
         if (event.getMember().localMember()) { // We left and re-joined the cluster
             joinCluster();
+
+            waitForClusterCacheToBeInstalled();
+
+            // Let the other nodes know that we joined the cluster
+            logger.debug("Done joining the cluster. Now proceed informing other nodes that we joined the cluster.");
+            CacheFactory.doClusterTask(new NewClusterMemberJoinedTask(true));
         } else {
-            if(wasSenior && !isSenior) {
+            if (wasSenior && !isSenior) {
                 logger.warn("Recovering from split-brain; firing leftCluster()/joinedCluster() events");
                 ClusteredCacheFactory.fireLeftClusterAndWaitToComplete(Duration.ofSeconds(30));
                 logger.debug("Firing joinedCluster() event");
                 ClusterManager.fireJoinedCluster(true);
-            } else {
-                // Trigger event that a new node has joined the cluster
-                ClusterManager.fireJoinedCluster(nodeID.toByteArray(), true);
+
+                waitForClusterCacheToBeInstalled();
+
+                // Let the other nodes know that we joined the cluster
+                logger.debug("Done joining the cluster in split brain recovery. Now proceed informing other nodes that we joined the cluster.");
+                CacheFactory.doClusterTask(new NewClusterMemberJoinedTask(true));
             }
         }
         clusterNodesInfo.put(nodeID,
                 new HazelcastClusterNodeInfo(event.getMember(), cluster.getClusterTime()));
+    }
+
+    /**
+     * Blocks the current thread until the cluster cache is guaranteed to support clustering. This is especially useful
+     * for executing cluster tasks immediately after joining. If this wait is not performed, the cache factory may still
+     * be using the 'default' strategy instead of the 'hazelcast' strategy, which leads to cluster tasks being silently
+     * discarded.
+     */
+    private void waitForClusterCacheToBeInstalled() {
+        if (!ClusteredCacheFactory.PLUGIN_NAME.equals(CacheFactory.getPluginName())) {
+            logger.debug("This node now joined a cluster, but the cache factory has not been swapped to '{}' yet. Waiting for that to happen.", ClusteredCacheFactory.PLUGIN_NAME);
+            while (!ClusteredCacheFactory.PLUGIN_NAME.equals(CacheFactory.getPluginName())) {
+                try {
+                    Thread.sleep(200);
+                } catch (InterruptedException e) {
+                }
+            }
+            logger.debug("Cache factory has been swapped to '{}'. Cluster join is considered complete.", ClusteredCacheFactory.PLUGIN_NAME);
+        }
     }
 
     @Override
