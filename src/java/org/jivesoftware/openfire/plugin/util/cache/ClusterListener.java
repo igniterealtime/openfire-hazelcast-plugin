@@ -202,7 +202,7 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
                     break;
                 }
             }
-            if (deadLine.isAfter(LocalTime.now())) {
+            if (!deadLine.isAfter(LocalTime.now())) {
                 failed = true;
                 logger.warn("Cache factory was not swapped to '{}', but still remains '{}' after a 10 minute wait. Cluster join is not guaranteed to have completed.", ClusteredCacheFactory.PLUGIN_NAME, CacheFactory.getPluginName());
             }
