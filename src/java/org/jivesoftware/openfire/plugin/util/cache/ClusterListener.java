@@ -111,6 +111,13 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
         if (seniorClusterMember) {
             ClusterManager.fireMarkedAsSeniorClusterMember();
         }
+
+        waitForClusterCacheToBeInstalled();
+
+        // Let the other nodes know that we joined the cluster
+        logger.debug("Done joining the cluster. Now proceed informing other nodes that we joined the cluster.");
+        CacheFactory.doClusterTask(new NewClusterMemberJoinedTask());
+
         logger.info("Joined cluster. XMPPServer node={}, Hazelcast UUID={}, seniorClusterMember={}",
             new Object[]{ClusteredCacheFactory.getNodeID(cluster.getLocalMember()), cluster.getLocalMember().getUuid(), seniorClusterMember});
         done = false;
@@ -155,11 +162,6 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
         if (event.getMember().localMember()) { // We left and re-joined the cluster
             joinCluster();
 
-            waitForClusterCacheToBeInstalled();
-
-            // Let the other nodes know that we joined the cluster
-            logger.debug("Done joining the cluster. Now proceed informing other nodes that we joined the cluster.");
-            CacheFactory.doClusterTask(new NewClusterMemberJoinedTask());
         } else {
             if (wasSenior && !isSenior) {
                 logger.warn("Recovering from split-brain; firing leftCluster()/joinedCluster() events");
