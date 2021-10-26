@@ -167,6 +167,16 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
                 logger.debug("Firing joinedCluster() event");
                 ClusterManager.fireJoinedCluster(false);
 
+                try {
+                    logger.debug("Postponing notification of other nodes for 30 seconds. This allows all local leave/join processing to be finished and local cache backups to be stabilized before receiving events from other nodes.");
+                    Thread.sleep(30000L);
+                } catch (InterruptedException e) {
+                    logger.warn("30 Second wait was interrupted.", e);
+                }
+
+                // The following line was intended to wait until all local handling finishes before informing other
+                // nodes. However that proved to be insufficient. Hence the 30 second default wait in the lines above.
+                // TODO Instead of the 30 second wait, we should look (and then wait) for some trigger or event that signifies that local handling has completed and caches have stabilized.
                 waitForClusterCacheToBeInstalled();
 
                 // Let the other nodes know that we joined the cluster
