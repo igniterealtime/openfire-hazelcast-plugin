@@ -239,7 +239,7 @@
         <backup-count>1</backup-count>
         <read-backup-data>true</read-backup-data>
     </map>
-    <map name="Incoming Server Sessions">
+    <map name="Incoming Server Session Info Cache">
         <backup-count>1</backup-count>
         <read-backup-data>true</read-backup-data>
     </map>
