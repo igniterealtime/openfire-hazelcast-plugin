@@ -630,7 +630,9 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
             }
         };
         try {
-            ClusterManager.addListener(clusterEventListener);
+            // Add a listener at the ultimate end of the list of all listeners, to detect that left-cluster event handling
+            // has been invoked for all before proceeding.
+            ClusterManager.addListener(clusterEventListener, Integer.MAX_VALUE);
             logger.debug("Firing leftCluster() event");
             ClusterManager.fireLeftCluster();
             logger.debug("Waiting for leftCluster() event to be called [timeout={}]", StringUtils.getFullElapsedTime(timeout));
