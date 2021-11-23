@@ -21,8 +21,12 @@ import com.hazelcast.core.IMap;
 import com.hazelcast.core.MapEvent;
 import com.hazelcast.map.listener.MapListener;
 import com.hazelcast.monitor.LocalMapStats;
+import org.jivesoftware.openfire.XMPPServer;
 import org.jivesoftware.openfire.cluster.ClusteredCacheEntryListener;
 import org.jivesoftware.openfire.cluster.NodeID;
+import org.jivesoftware.openfire.container.Plugin;
+import org.jivesoftware.openfire.container.PluginClassLoader;
+import org.jivesoftware.openfire.container.PluginManager;
 import org.jivesoftware.util.cache.Cache;
 import org.jivesoftware.util.cache.CacheFactory;
 import org.slf4j.Logger;
@@ -30,6 +34,8 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.io.Serializable;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
@@ -52,6 +58,12 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
     final IMap<K, V> map;
     private String name;
     private long numberOfGets = 0;
+
+    /**
+     * Used to limit the amount of duplicate warnings logged.
+     */
+    private Instant lastPluginClassLoaderWarning = Instant.EPOCH;
+    private final Duration pluginClassLoaderWarningSupression = Duration.ofHours(1);
 
     /**
      * Create a new cache using the supplied named cache as the actual cache implementation
@@ -154,6 +166,8 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
     @Override
     public V put(final K key, final V object) {
         if (object == null) { return null; }
+        checkForPluginClassLoader(key);
+        checkForPluginClassLoader(object);
         return map.put(key, object);
     }
 
@@ -207,6 +221,14 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
     @Override
     public void putAll(final Map<? extends K, ? extends V> entries) {
         map.putAll(entries);
+
+        // Instances are likely all loaded by the same class loader. For resource usage optimization, let's test just one, not all.
+        entries.entrySet().stream().findAny().ifPresent(
+            e -> {
+                checkForPluginClassLoader(e.getKey());
+                checkForPluginClassLoader(e.getValue());
+            }
+        );
     }
 
     @Override
@@ -291,4 +313,37 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
         }
     }
 
+    /**
+     * Clustered caches should not contain instances of classes that are provided by Openfire plugins. These will cause
+     * issues related to class loading when the providing plugin is reloaded. This method verifies if an instance is
+     * loaded by a plugin class loader, and logs a warning to the log files when it is. The amount of warnings logged is
+     * limited by a time interval.
+     *
+     * @param o the instance for which to verify the class loader
+     * @see <a href="https://github.com/igniterealtime/openfire-hazelcast-plugin/issues/74">Issue #74: Warn against usage of plugin-provided classes in Hazelcast</a>
+     */
+    protected void checkForPluginClassLoader(final Object o) {
+        if (o != null && o.getClass().getClassLoader() instanceof PluginClassLoader
+            && lastPluginClassLoaderWarning.isBefore(Instant.now().minus(pluginClassLoaderWarningSupression)) )
+        {
+            // Try to determine what plugin loaded the offending class.
+            String pluginName = null;
+            try {
+                final Collection<Plugin> plugins = XMPPServer.getInstance().getPluginManager().getPlugins();
+                for (final Plugin plugin : plugins) {
+                    final PluginClassLoader pluginClassloader = XMPPServer.getInstance().getPluginManager().getPluginClassloader(plugin);
+                    if (o.getClass().getClassLoader().equals(pluginClassloader)) {
+                        pluginName = XMPPServer.getInstance().getPluginManager().getCanonicalName(plugin);
+                        break;
+                    }
+                }
+            } catch (Exception e) {
+                logger.debug("An exception occurred while trying to determine the plugin class loader that loaded an instance of {}", o.getClass(), e);
+            }
+            logger.warn("An instance of {} that is loaded by {} has been added to the cache. " +
+                "This will cause issues when reloading the plugin that provides this class. The plugin implementation should be modified.",
+                o.getClass(), pluginName != null ? pluginName : "a PluginClassLoader");
+            lastPluginClassLoaderWarning = Instant.now();
+        }
+    }
 }

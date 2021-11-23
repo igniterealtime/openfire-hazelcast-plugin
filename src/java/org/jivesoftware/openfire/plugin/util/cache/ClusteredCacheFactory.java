@@ -34,6 +34,8 @@ import org.jivesoftware.openfire.cluster.ClusterEventListener;
 import org.jivesoftware.openfire.cluster.ClusterManager;
 import org.jivesoftware.openfire.cluster.ClusterNodeInfo;
 import org.jivesoftware.openfire.cluster.NodeID;
+import org.jivesoftware.openfire.container.Plugin;
+import org.jivesoftware.openfire.container.PluginClassLoader;
 import org.jivesoftware.openfire.plugin.HazelcastPlugin;
 import org.jivesoftware.openfire.plugin.util.cluster.HazelcastClusterNodeInfo;
 import org.jivesoftware.util.StringUtils;
@@ -52,6 +54,7 @@ import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
 import java.text.MessageFormat;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -152,6 +155,16 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
      * Keeps that running state. Initial state is stopped.
      */
     private State state = State.stopped;
+
+    /**
+     * Used to limit the amount of duplicate warnings logged.
+     */
+    private final Cache<String, Instant> pluginClassLoaderWarnings;
+
+    public ClusteredCacheFactory() {
+        pluginClassLoaderWarnings = CacheFactory.createLocalCache("PluginClassLoader Warnings for Clustered Tasks");
+        pluginClassLoaderWarnings.setMaxLifetime(Duration.ofHours(1).toMillis()); // Minimum duration between logged warnings.
+    }
 
     @Override
     public boolean startCluster() {
@@ -366,6 +379,7 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
         if (!members.isEmpty()) {
             // Asynchronously execute the task on the other cluster members
             logger.debug("Executing asynchronous MultiTask: " + task.getClass().getName());
+            checkForPluginClassLoader(task);
             hazelcast.getExecutorService(HAZELCAST_EXECUTOR_SERVICE_NAME.getValue()).submitToMembers(new CallableTask<>(task), members);
         } else {
             logger.debug("No cluster members selected for cluster task " + task.getClass().getName());
@@ -387,6 +401,7 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
         if (member != null) {
             // Asynchronously execute the task on the target member
             logger.debug("Executing asynchronous DistributedTask: " + task.getClass().getName());
+            checkForPluginClassLoader(task);
             hazelcast.getExecutorService(HAZELCAST_EXECUTOR_SERVICE_NAME.getValue()).submitToMember(new CallableTask<>(task), member);
         } else {
             final String msg = MessageFormat.format("Requested node {0} not found in cluster", new String(nodeID, StandardCharsets.UTF_8));
@@ -417,6 +432,7 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
             // Asynchronously execute the task on the other cluster members
             try {
                 logger.debug("Executing MultiTask: " + task.getClass().getName());
+                checkForPluginClassLoader(task);
                 final Map<Member, ? extends Future<T>> futures = hazelcast.getExecutorService(HAZELCAST_EXECUTOR_SERVICE_NAME.getValue()).submitToMembers(new CallableTask<>(task), members);
                 long nanosLeft = TimeUnit.SECONDS.toNanos(MAX_CLUSTER_EXECUTION_TIME.getValue().getSeconds() * members.size());
                 for (final Future<T> future : futures.values()) {
@@ -451,6 +467,7 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
         if (member != null) {
             // Asynchronously execute the task on the target member
             logger.debug("Executing DistributedTask: " + task.getClass().getName());
+            checkForPluginClassLoader(task);
             try {
                 final Future<T> future = hazelcast.getExecutorService(HAZELCAST_EXECUTOR_SERVICE_NAME.getValue()).submitToMember(new CallableTask<>(task), member);
                 result = future.get(MAX_CLUSTER_EXECUTION_TIME.getValue().getSeconds(), TimeUnit.SECONDS);
@@ -531,6 +548,40 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
         // TODO: Update CacheFactoryStrategy so the signature is getLock(final Serializable key, Cache<Serializable, Serializable> cache)
         @SuppressWarnings("unchecked") final ClusterLock clusterLock = new ClusterLock((Serializable) key, (ClusteredCache<Serializable, ?>) cache);
         return clusterLock;
+    }
+
+    /**
+     * ClusterTasks that are executed should not be provided by a plugin. These will cause issues related to class
+     * loading when the providing plugin is reloaded. This method verifies if an instance of a task is
+     * loaded by a plugin class loader, and logs a warning to the log files when it is. The amount of warnings logged is
+     * limited by a time interval.
+     *
+     * @param o the instance for which to verify the class loader
+     * @see <a href="https://github.com/igniterealtime/openfire-hazelcast-plugin/issues/74">Issue #74: Warn against usage of plugin-provided classes in Hazelcast</a>
+     */
+    protected <T extends ClusterTask<?>> void checkForPluginClassLoader(final T o) {
+        if (o != null && o.getClass().getClassLoader() instanceof PluginClassLoader
+            && !pluginClassLoaderWarnings.containsKey(o.getClass().getName()) )
+        {
+            // Try to determine what plugin loaded the offending class.
+            String pluginName = null;
+            try {
+                final Collection<Plugin> plugins = XMPPServer.getInstance().getPluginManager().getPlugins();
+                for (final Plugin plugin : plugins) {
+                    final PluginClassLoader pluginClassloader = XMPPServer.getInstance().getPluginManager().getPluginClassloader(plugin);
+                    if (o.getClass().getClassLoader().equals(pluginClassloader)) {
+                        pluginName = XMPPServer.getInstance().getPluginManager().getCanonicalName(plugin);
+                        break;
+                    }
+                }
+            } catch (Exception e) {
+                logger.debug("An exception occurred while trying to determine the plugin class loader that loaded an instance of {}", o.getClass(), e);
+            }
+            logger.warn("An instance of {} that is executed as a cluster task. This will cause issues when reloading " +
+                    "the plugin that provides this class. The plugin implementation should be modified.",
+                pluginName != null ? o.getClass() + " (provided by plugin " + pluginName + ")" : o.getClass());
+            pluginClassLoaderWarnings.put(o.getClass().getName(), Instant.now()); // Note that this Instant is unused.
+        }
     }
 
     private static class ClusterLock implements Lock {
