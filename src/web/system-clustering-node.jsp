@@ -8,13 +8,13 @@
 %>
 <%@ page import="org.jivesoftware.util.Base64" %>
 <%@ page import="org.jivesoftware.util.JiveGlobals" %>
-<%@ page import="org.jivesoftware.util.Log" %>
 <%@ page import="org.jivesoftware.util.LocaleUtils" %>
 <%@ page import="org.jivesoftware.util.ParamUtils" %>
 <%@ page import="org.jivesoftware.util.cache.Cache" %>
 <%@ page import="java.text.DecimalFormat" %>
 <%@ page import="java.text.NumberFormat" %>
 <%@ page import="java.util.*" %>
+<%@ page import="org.slf4j.LoggerFactory" %>
 
 <jsp:useBean id="webManager" class="org.jivesoftware.util.WebManager"  />
 <% webManager.init(request, response, session, application, out ); %>
@@ -108,10 +108,10 @@
     }
 
     if (member == null) {
-        Log.warn("Node not found: " + uid);
+        LoggerFactory.getLogger("system-clustering-node.jsp").warn("Node not found: " + uid);
         for (int i = 0; i < members.size(); i++) {
             ClusterNodeInfo m = members.get(i);
-            Log.warn("Available members: " + m.getNodeID().toString());
+            LoggerFactory.getLogger("system-clustering-node.jsp").warn("Available members: " + m.getNodeID().toString());
         }
 
         response.sendRedirect("../../system-clustering.jsp");
