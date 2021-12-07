@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2009 Jive Software, 2022 Ignite Realtime Foundation. All rights reserved.
+ * Copyright (C) 2004-2009 Jive Software, 2020-2024 Ignite Realtime Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 package org.jivesoftware.openfire.plugin.util.cache;
 
+import javax.annotation.Nullable;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInput;
@@ -266,7 +267,7 @@ public class ClusterExternalizableUtil implements ExternalizableUtilStrategy {
      * @return the number of elements added to the collection.
      */
     public int readExternalizableCollection(DataInput in, Collection<? extends Externalizable> value, ClassLoader loader) throws IOException {
-        Collection<Externalizable> result = (Collection<Externalizable>) readObject(in);
+        Collection<Externalizable> result = (Collection<Externalizable>) readObject(loader, in);
         if (result == null) return 0;
         ((Collection<Externalizable>)value).addAll(result);
         return result.size();
@@ -283,7 +284,7 @@ public class ClusterExternalizableUtil implements ExternalizableUtilStrategy {
      * @return the number of elements added to the collection.
      */
     public int readSerializableCollection(DataInput in, Collection<? extends Serializable> value, ClassLoader loader) throws IOException {
-        Collection<Serializable> result = (Collection<Serializable>) readObject(in);
+        Collection<Serializable> result = (Collection<Serializable>) readObject(loader, in);
         if (result == null) return 0;
         ((Collection<Serializable>)value).addAll(result);
         return result.size();
@@ -324,7 +325,7 @@ public class ClusterExternalizableUtil implements ExternalizableUtilStrategy {
      * @return the number of elements added to the collection.
      */
     public int readExternalizableMap(DataInput in, Map<String, ? extends Externalizable> map, ClassLoader loader) throws IOException {
-        Map<String, Externalizable> result = (Map<String, Externalizable>) readObject(in);
+        Map<String, Externalizable> result = (Map<String, Externalizable>) readObject(loader, in);
         if (result == null) return 0;
         ((Map<String, Externalizable>)map).putAll(result);
         return result.size();
@@ -341,7 +342,7 @@ public class ClusterExternalizableUtil implements ExternalizableUtilStrategy {
      * @return the number of elements added to the collection.
      */
     public int readSerializableMap(DataInput in, Map<? extends Serializable, ? extends Serializable> map, ClassLoader loader) throws IOException {
-        Map<String, Serializable> result = (Map<String, Serializable>) readObject(in);
+        Map<String, Serializable> result = (Map<String, Serializable>) readObject(loader, in);
         if (result == null) return 0;
         ((Map<String, Serializable>)map).putAll(result);
         return result.size();
@@ -403,6 +404,10 @@ public class ClusterExternalizableUtil implements ExternalizableUtilStrategy {
     }
 
     public static Object readObject(DataInput in) throws IOException {
+        return readObject(null, in);
+    }
+
+    public static Object readObject(ClassLoader classLoader, DataInput in) throws IOException {
         byte type = in.readByte();
         if (type == 0) {
             return null;
@@ -428,7 +433,7 @@ public class ClusterExternalizableUtil implements ExternalizableUtilStrategy {
             int len = in.readInt();
             byte[] buf = new byte[len];
             in.readFully(buf);
-            try (ObjectInputStream oin = newObjectInputStream(new ByteArrayInputStream(buf))) {
+            try (ObjectInputStream oin = newObjectInputStream(classLoader, new ByteArrayInputStream(buf))) {
                 return oin.readObject();
             } catch (ClassNotFoundException e) {
                 throw new IOException(e);
@@ -437,7 +442,16 @@ public class ClusterExternalizableUtil implements ExternalizableUtilStrategy {
             throw new IOException("Unknown object type=" + type);
         }
     }
-    
+
+    public static ObjectInputStream newObjectInputStream(@Nullable final ClassLoader classLoader, final InputStream in) throws IOException {
+        return new ObjectInputStream(in) {
+            @Override
+            protected Class<?> resolveClass(final ObjectStreamClass desc) throws ClassNotFoundException {
+                return loadClass(classLoader, desc.getName());
+            }
+        };
+    }
+
     public static ObjectInputStream newObjectInputStream(final InputStream in) throws IOException {
         return new ObjectInputStream(in) {
             @Override
@@ -451,7 +465,7 @@ public class ClusterExternalizableUtil implements ExternalizableUtilStrategy {
         return loadClass(null, className);
     }
 
-    public static Class<?> loadClass(final ClassLoader classLoader, final String className) throws ClassNotFoundException {
+    public static Class<?> loadClass(@Nullable final ClassLoader classLoader, final String className) throws ClassNotFoundException {
         if (className == null) {
             throw new IllegalArgumentException("ClassName cannot be null!");
         }
