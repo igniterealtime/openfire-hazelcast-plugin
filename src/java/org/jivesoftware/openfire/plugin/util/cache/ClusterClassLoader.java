@@ -20,11 +20,15 @@ import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.Objects;
 import java.util.stream.Stream;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import org.jivesoftware.openfire.XMPPServer;
 import org.jivesoftware.openfire.container.Plugin;
 import org.jivesoftware.openfire.container.PluginClassLoader;
@@ -61,9 +65,23 @@ public class ClusterClassLoader extends ClassLoader {
         .setDynamic(false)
         .setPlugin(HazelcastPlugin.PLUGIN_NAME)
         .build();
+
+    private static final SystemProperty<Duration> CLASS_CACHE_DURATION = SystemProperty.Builder.ofType(Duration.class)
+        .setKey("hazelcast.cache.class.duration")
+        .setChronoUnit(ChronoUnit.MILLIS)
+        .setDefaultValue(Duration.ofSeconds(5))
+        .setDynamic(false)
+        .setPlugin(HazelcastPlugin.PLUGIN_NAME)
+        .build();
+
     private static final PluginManager pluginManager = XMPPServer.getInstance().getPluginManager();
 
     private final PluginClassLoader hazelcastClassloader;
+
+    // TODO: unload classes provided by plugins that are unloaded. Until then, keep the expiry very short, as to evict classes soon after unloading a plugin.
+    private static final Cache<String, Class<?>> CLASS_CACHE = Caffeine.newBuilder()
+        .expireAfterWrite(CLASS_CACHE_DURATION.getValue())
+        .build();
 
     ClusterClassLoader() {
         Plugin plugin = pluginManager.getPluginByName(HazelcastPlugin.PLUGIN_NAME)
@@ -81,6 +99,14 @@ public class ClusterClassLoader extends ClassLoader {
     }
 
     public Class<?> loadClass(String name) throws ClassNotFoundException {
+        final Class<?> result = CLASS_CACHE.get(name, this::_loadClass);
+        if (result == null) {
+            throw new ClassNotFoundException(name);
+        }
+        return result;
+    }
+
+    protected Class<?> _loadClass(String name) {
         return getPluginClassLoaders()
             .map(classLoader -> {
                 try {
@@ -91,7 +117,7 @@ public class ClusterClassLoader extends ClassLoader {
             })
             .filter(Objects::nonNull)
             .findFirst()
-            .orElseThrow(() -> new ClassNotFoundException(name));
+            .orElse(null);
     }
 
     /**
