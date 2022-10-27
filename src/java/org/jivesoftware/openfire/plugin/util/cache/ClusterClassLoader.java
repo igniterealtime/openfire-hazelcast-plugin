@@ -53,7 +53,7 @@ import org.slf4j.LoggerFactory;
  */
 public class ClusterClassLoader extends ClassLoader {
 
-    private static Logger logger = LoggerFactory.getLogger(ClusterClassLoader.class);
+    private static final Logger logger = LoggerFactory.getLogger(ClusterClassLoader.class);
 
     private static final SystemProperty<String> HAZELCAST_CONFIG_DIR = SystemProperty.Builder.ofType(String.class)
         .setKey("hazelcast.config.xml.directory")
