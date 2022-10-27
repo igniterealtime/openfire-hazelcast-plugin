@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2009 Jive Software. All rights reserved.
+ * Copyright (C) 2007-2009 Jive Software, 2022 Ignite Realtime Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,15 +20,12 @@ import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.Objects;
+import java.util.concurrent.locks.Lock;
 import java.util.stream.Stream;
 
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import org.jivesoftware.openfire.XMPPServer;
 import org.jivesoftware.openfire.container.Plugin;
 import org.jivesoftware.openfire.container.PluginClassLoader;
@@ -36,6 +33,8 @@ import org.jivesoftware.openfire.container.PluginManager;
 import org.jivesoftware.openfire.plugin.HazelcastPlugin;
 import org.jivesoftware.util.JiveGlobals;
 import org.jivesoftware.util.SystemProperty;
+import org.jivesoftware.util.cache.Cache;
+import org.jivesoftware.util.cache.CacheFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,27 +65,21 @@ public class ClusterClassLoader extends ClassLoader {
         .setPlugin(HazelcastPlugin.PLUGIN_NAME)
         .build();
 
-    private static final SystemProperty<Duration> CLASS_CACHE_DURATION = SystemProperty.Builder.ofType(Duration.class)
-        .setKey("hazelcast.cache.class.duration")
-        .setChronoUnit(ChronoUnit.MILLIS)
-        .setDefaultValue(Duration.ofSeconds(5))
-        .setDynamic(false)
-        .setPlugin(HazelcastPlugin.PLUGIN_NAME)
-        .build();
-
     private static final PluginManager pluginManager = XMPPServer.getInstance().getPluginManager();
 
     private final PluginClassLoader hazelcastClassloader;
 
-    // TODO: unload classes provided by plugins that are unloaded. Until then, keep the expiry very short, as to evict classes soon after unloading a plugin.
-    private static final Cache<String, Class<?>> CLASS_CACHE = Caffeine.newBuilder()
-        .expireAfterWrite(CLASS_CACHE_DURATION.getValue())
-        .build();
+    private final Cache<String, Class<?>> CLASS_CACHE;
 
     ClusterClassLoader() {
         Plugin plugin = pluginManager.getPluginByName(HazelcastPlugin.PLUGIN_NAME)
             .orElseThrow(() -> new IllegalStateException("Unable to find the Hazelcast plugin - name=" + HazelcastPlugin.PLUGIN_NAME));
         hazelcastClassloader = pluginManager.getPluginClassloader(plugin);
+
+        CLASS_CACHE = CacheFactory.createLocalCache("Cluster Class Definitions");
+
+        // TODO: unload classes provided by plugins that are unloaded. Until then, keep the expiry very short, as to evict classes soon after unloading a plugin.
+        CLASS_CACHE.setMaxLifetime(5000);
 
         // this is meant to allow loading configuration files from outside the plugin JAR file
         File confFolder = new File(HAZELCAST_CONFIG_DIR.getValue());
@@ -99,7 +92,23 @@ public class ClusterClassLoader extends ClassLoader {
     }
 
     public Class<?> loadClass(String name) throws ClassNotFoundException {
-        final Class<?> result = CLASS_CACHE.get(name, this::_loadClass);
+        Class<?> result = CLASS_CACHE.get(name);
+
+        if (result == null) {
+            // Not worried about retrieval that is not thread safe. Let's guard against concurrent calls to _loadClass() for the same name though.
+            final Lock lock = CLASS_CACHE.getLock(name);
+            try {
+                lock.lock();
+                result = CLASS_CACHE.get(name);
+                if (result == null) {
+                    result = _loadClass(name);
+                    CLASS_CACHE.put(name, result);
+                }
+            } finally {
+                lock.unlock();
+            }
+        }
+
         if (result == null) {
             throw new ClassNotFoundException(name);
         }
