@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2009 Jive Software. All rights reserved.
+ * Copyright (C) 2004-2009 Jive Software, 2022 Ignite Realtime Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,10 +32,16 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.locks.Lock;
 
+import org.jivesoftware.util.cache.Cache;
+import org.jivesoftware.util.cache.CacheFactory;
 import org.jivesoftware.util.cache.ExternalizableUtilStrategy;
 
 import com.hazelcast.core.HazelcastInstance;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Serialization strategy that uses Hazelcast as its underlying mechanism.
@@ -44,6 +50,13 @@ import com.hazelcast.core.HazelcastInstance;
  * @author Gaston Dombiak
  */
 public class ClusterExternalizableUtil implements ExternalizableUtilStrategy {
+
+    private static final Cache<String, Class<?>> CLASS_CACHE = CacheFactory.createLocalCache("Cluster Class Definitions");
+
+    static {
+        // TODO: This value is kept low to account for classes removed when a plugin gets unloaded. Replace this with a mechanism that detects plugin changes.
+        CLASS_CACHE.setMaxLifetime(5000);
+    }
 
     /**
      * Writes a Map of String key and value pairs. This method handles the
@@ -450,6 +463,29 @@ public class ClusterExternalizableUtil implements ExternalizableUtilStrategy {
                 }
             }
         }
+
+        Class<?> result = CLASS_CACHE.get(className);
+
+        if (result == null) {
+            // Not worried about retrieval that is not thread safe. Let's guard against concurrent calls to _loadClass() for the same name though.
+            final Lock lock = CLASS_CACHE.getLock(className);
+            try {
+                lock.lock();
+                result = CLASS_CACHE.get(className);
+                if (result == null) {
+                    result = _loadClass(classLoader, className);
+                    CLASS_CACHE.put(className, result);
+                }
+            } finally {
+                lock.unlock();
+            }
+        }
+        return result;
+    }
+
+    @Nonnull
+    private static Class<?> _loadClass(@Nullable final ClassLoader classLoader, @Nonnull final String className) throws ClassNotFoundException
+    {
         ClassLoader theClassLoader = classLoader;
         if (className.startsWith("com.hazelcast.") || className.startsWith("[Lcom.hazelcast.")) {
             theClassLoader = HazelcastInstance.class.getClassLoader();
@@ -466,7 +502,7 @@ public class ClusterExternalizableUtil implements ExternalizableUtilStrategy {
         }
         return Class.forName(className);
     }
-    
+
     private static final Class[] PRIMITIVE_CLASSES_ARRAY = {int.class, long.class, boolean.class, byte.class,
         float.class, double.class, byte.class, char.class, short.class, void.class};
     private static final int MAX_PRIM_CLASSNAME_LENGTH = 7; // boolean.class.getName().length();

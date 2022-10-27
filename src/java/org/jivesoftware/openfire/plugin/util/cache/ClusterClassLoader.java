@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2009 Jive Software, 2022 Ignite Realtime Foundation. All rights reserved.
+ * Copyright (C) 2007-2009 Jive Software. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@ import java.net.URL;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.Objects;
-import java.util.concurrent.locks.Lock;
 import java.util.stream.Stream;
 
 import org.jivesoftware.openfire.XMPPServer;
@@ -33,8 +32,6 @@ import org.jivesoftware.openfire.container.PluginManager;
 import org.jivesoftware.openfire.plugin.HazelcastPlugin;
 import org.jivesoftware.util.JiveGlobals;
 import org.jivesoftware.util.SystemProperty;
-import org.jivesoftware.util.cache.Cache;
-import org.jivesoftware.util.cache.CacheFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -64,22 +61,14 @@ public class ClusterClassLoader extends ClassLoader {
         .setDynamic(false)
         .setPlugin(HazelcastPlugin.PLUGIN_NAME)
         .build();
-
     private static final PluginManager pluginManager = XMPPServer.getInstance().getPluginManager();
 
     private final PluginClassLoader hazelcastClassloader;
-
-    private final Cache<String, Class<?>> CLASS_CACHE;
 
     ClusterClassLoader() {
         Plugin plugin = pluginManager.getPluginByName(HazelcastPlugin.PLUGIN_NAME)
             .orElseThrow(() -> new IllegalStateException("Unable to find the Hazelcast plugin - name=" + HazelcastPlugin.PLUGIN_NAME));
         hazelcastClassloader = pluginManager.getPluginClassloader(plugin);
-
-        CLASS_CACHE = CacheFactory.createLocalCache("Cluster Class Definitions");
-
-        // TODO: unload classes provided by plugins that are unloaded. Until then, keep the expiry very short, as to evict classes soon after unloading a plugin.
-        CLASS_CACHE.setMaxLifetime(5000);
 
         // this is meant to allow loading configuration files from outside the plugin JAR file
         File confFolder = new File(HAZELCAST_CONFIG_DIR.getValue());
@@ -92,30 +81,6 @@ public class ClusterClassLoader extends ClassLoader {
     }
 
     public Class<?> loadClass(String name) throws ClassNotFoundException {
-        Class<?> result = CLASS_CACHE.get(name);
-
-        if (result == null) {
-            // Not worried about retrieval that is not thread safe. Let's guard against concurrent calls to _loadClass() for the same name though.
-            final Lock lock = CLASS_CACHE.getLock(name);
-            try {
-                lock.lock();
-                result = CLASS_CACHE.get(name);
-                if (result == null) {
-                    result = _loadClass(name);
-                    CLASS_CACHE.put(name, result);
-                }
-            } finally {
-                lock.unlock();
-            }
-        }
-
-        if (result == null) {
-            throw new ClassNotFoundException(name);
-        }
-        return result;
-    }
-
-    protected Class<?> _loadClass(String name) {
         return getPluginClassLoaders()
             .map(classLoader -> {
                 try {
@@ -126,7 +91,7 @@ public class ClusterClassLoader extends ClassLoader {
             })
             .filter(Objects::nonNull)
             .findFirst()
-            .orElse(null);
+            .orElseThrow(() -> new ClassNotFoundException(name));
     }
 
     /**
