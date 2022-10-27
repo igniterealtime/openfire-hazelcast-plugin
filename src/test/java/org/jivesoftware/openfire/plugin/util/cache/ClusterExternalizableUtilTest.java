@@ -17,7 +17,9 @@ package org.jivesoftware.openfire.plugin.util.cache;
 
 import com.google.common.primitives.Bytes;
 import org.dom4j.tree.DefaultElement;
+import org.jivesoftware.util.cache.CacheFactory;
 import org.junit.Assert;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.xmpp.packet.JID;
 import org.xmpp.packet.Message;
@@ -29,6 +31,11 @@ import java.util.List;
 
 public class ClusterExternalizableUtilTest
 {
+    @BeforeClass
+    public static void setup() throws Exception {
+        CacheFactory.initialize();
+    }
+
     /**
      * Verifies that ClusterExternalizableUtil.readObject() successfully deserializes a Collection of Messages.
      */
