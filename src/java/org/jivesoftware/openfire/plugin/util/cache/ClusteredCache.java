@@ -26,7 +26,6 @@ import org.jivesoftware.openfire.cluster.ClusteredCacheEntryListener;
 import org.jivesoftware.openfire.cluster.NodeID;
 import org.jivesoftware.openfire.container.Plugin;
 import org.jivesoftware.openfire.container.PluginClassLoader;
-import org.jivesoftware.openfire.container.PluginManager;
 import org.jivesoftware.util.cache.Cache;
 import org.jivesoftware.util.cache.CacheFactory;
 import org.slf4j.Logger;

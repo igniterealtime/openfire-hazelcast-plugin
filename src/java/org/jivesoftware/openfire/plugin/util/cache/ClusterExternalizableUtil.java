@@ -428,13 +428,10 @@ public class ClusterExternalizableUtil implements ExternalizableUtilStrategy {
             int len = in.readInt();
             byte[] buf = new byte[len];
             in.readFully(buf);
-            ObjectInputStream oin = newObjectInputStream(new ByteArrayInputStream(buf));
-            try {
+            try (ObjectInputStream oin = newObjectInputStream(new ByteArrayInputStream(buf))) {
                 return oin.readObject();
             } catch (ClassNotFoundException e) {
                 throw new IOException(e);
-            } finally {
-                oin.close();
             }
         } else {
             throw new IOException("Unknown object type=" + type);
@@ -459,9 +456,9 @@ public class ClusterExternalizableUtil implements ExternalizableUtilStrategy {
             throw new IllegalArgumentException("ClassName cannot be null!");
         }
         if (className.length() <= MAX_PRIM_CLASSNAME_LENGTH && Character.isLowerCase(className.charAt(0))) {
-            for (int i = 0; i < PRIMITIVE_CLASSES_ARRAY.length; i++) {
-                if (className.equals(PRIMITIVE_CLASSES_ARRAY[i].getName())) {
-                    return PRIMITIVE_CLASSES_ARRAY[i];
+            for (Class aClass : PRIMITIVE_CLASSES_ARRAY) {
+                if (className.equals(aClass.getName())) {
+                    return aClass;
                 }
             }
         }
