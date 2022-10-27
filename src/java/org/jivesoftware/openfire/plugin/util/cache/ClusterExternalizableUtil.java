@@ -53,9 +53,11 @@ public class ClusterExternalizableUtil implements ExternalizableUtilStrategy {
 
     private static final Cache<String, Class<?>> CLASS_CACHE = CacheFactory.createLocalCache("Cluster Class Definitions");
 
-    static {
-        // TODO: This value is kept low to account for classes removed when a plugin gets unloaded. Replace this with a mechanism that detects plugin changes.
-        CLASS_CACHE.setMaxLifetime(5000);
+    /**
+     * Removes all class definitions from the cache that is used to speed up class loading.
+     */
+    public static void purgeCachedClassDefinitions() {
+        CLASS_CACHE.clear();
     }
 
     /**

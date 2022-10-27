@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2009 Jive Software. All rights reserved.
+ * Copyright (C) 2004-2009 Jive Software, 2022 Ignite Realtime Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,8 +25,10 @@ import java.nio.file.Paths;
 import org.jivesoftware.openfire.XMPPServer;
 import org.jivesoftware.openfire.cluster.ClusterManager;
 import org.jivesoftware.openfire.container.Plugin;
+import org.jivesoftware.openfire.container.PluginListener;
 import org.jivesoftware.openfire.container.PluginManager;
 import org.jivesoftware.openfire.container.PluginManagerListener;
+import org.jivesoftware.openfire.plugin.util.cache.ClusterExternalizableUtil;
 import org.jivesoftware.util.JiveGlobals;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,6 +45,7 @@ public class HazelcastPlugin implements Plugin {
 
     public static final String PLUGIN_NAME = "Hazelcast Plugin"; // Exact match to plugin.xml
     private static final Logger LOGGER = LoggerFactory.getLogger(HazelcastPlugin.class);
+    private PluginListener pluginChangeListener;
 
     @Override
     public void initializePlugin(final PluginManager manager, final File pluginDirectory) {
@@ -55,6 +58,22 @@ public class HazelcastPlugin implements Plugin {
                 initializeClustering(pluginDirectory);
             }
         });
+
+        pluginChangeListener = new PluginListener() {
+            @Override
+            public void pluginCreated(String s, Plugin plugin)
+            {}
+
+            @Override
+            public void pluginDestroyed(String s, Plugin plugin) {
+                // Although it is more performant to only purge the definitions loaded by the class loader of the related
+                // plugin, that implementation is a lot more complex (eg: what to do with parent/child plugins?), while
+                // the performance gains are minimal in real-world scenarios. This simple approach has the benefit of being
+                // a lot less error-prone.
+                ClusterExternalizableUtil.purgeCachedClassDefinitions();
+            }
+        };
+        manager.addPluginListener(pluginChangeListener);
     }
 
     private void initializeClustering(final File hazelcastPluginDirectory) {
@@ -75,6 +94,13 @@ public class HazelcastPlugin implements Plugin {
     public void destroyPlugin() {
         // Shutdown is initiated by XMPPServer before unloading plugins
         if (!XMPPServer.getInstance().isShuttingDown()) {
+            try {
+                XMPPServer.getInstance().getPluginManager().removePluginListener(pluginChangeListener);
+                ClusterExternalizableUtil.purgeCachedClassDefinitions();
+            } catch (Throwable t) {
+                LOGGER.warn("Unable to remove plugin change listener.", t);
+            }
+
             ClusterManager.shutdown();
         }
     }
