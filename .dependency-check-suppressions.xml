@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+    <suppress>
+        <notes>Ignore Openfire</notes>
+        <packageUrl regex="true">^pkg:maven/org\.igniterealtime\.openfire/xmppserver@.*$</packageUrl>
+        <cpe>cpe:/a:igniterealtime:openfire</cpe>
+    </suppress>
+    <suppress>
+        <notes>Ignore Openfire</notes>
+        <packageUrl regex="true">^pkg:maven/org\.igniterealtime\.openfire/xmppserver@.*$</packageUrl>
+        <cpe>cpe:/a:ignite_realtime:openfire</cpe>
+    </suppress>
+</suppressions>
