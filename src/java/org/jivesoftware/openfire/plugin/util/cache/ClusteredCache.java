@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1999-2009 Jive Software. All rights reserved.
+ * Copyright (C) 1999-2009 Jive Software, 2024 Ignite Realtime Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 package org.jivesoftware.openfire.plugin.util.cache;
 
+import com.hazelcast.config.MapConfig;
 import com.hazelcast.core.EntryEvent;
 import com.hazelcast.core.EntryListener;
 import com.hazelcast.core.IMap;
@@ -26,6 +27,7 @@ import org.jivesoftware.openfire.cluster.ClusteredCacheEntryListener;
 import org.jivesoftware.openfire.cluster.NodeID;
 import org.jivesoftware.openfire.container.Plugin;
 import org.jivesoftware.openfire.container.PluginClassLoader;
+import org.jivesoftware.util.LocaleUtils;
 import org.jivesoftware.util.cache.Cache;
 import org.jivesoftware.util.cache.CacheFactory;
 import org.slf4j.Logger;
@@ -55,6 +57,12 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
      * The map is used for distributed operations such as get, put, etc.
      */
     final IMap<K, V> map;
+
+    /**
+     * The configuration of {@link #map}
+     */
+    final MapConfig config;
+
     private String name;
     private long numberOfGets = 0;
 
@@ -70,9 +78,10 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
      * @param name a name for the cache, which should be unique per vm.
      * @param cache the cache implementation
      */
-    protected ClusteredCache(final String name, final IMap<K, V> cache) {
+    protected ClusteredCache(final String name, final IMap<K, V> cache, final MapConfig config) {
         this.map = cache;
         this.name = name;
+        this.config = config;
         logger = LoggerFactory.getLogger(ClusteredCache.class.getName() + "[cache: "+name+"]");
     }
 
@@ -150,6 +159,30 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
         logger.debug("Removing clustered cache entry listener: '{}'", listenerId);
         map.removeEntryListener(listenerId);
         listeners.remove(listenerId);
+    }
+
+    /**
+     * Defines the unit used to calculate the capacity of the cache.<p>
+     *
+     * When the unit is unknown, null is returned.
+     *
+     * @return the unit to be used to calculate the capacity of this cache.
+     */
+    public CapacityUnit getCapacityUnit() {
+        switch (config.getMaxSizeConfig().getMaxSizePolicy()) {
+            case PER_PARTITION:
+            case PER_NODE:
+                return CapacityUnit.ENTITIES;
+
+            case USED_HEAP_SIZE:
+            case FREE_HEAP_SIZE:
+            case USED_NATIVE_MEMORY_SIZE:
+            case FREE_NATIVE_MEMORY_SIZE:
+                return CapacityUnit.BYTES;
+
+            default:
+                return null;
+        }
     }
 
     @Override
@@ -247,39 +280,45 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
     }
 
     @Override
-    public int getCacheSize() {
-        return (int) getLongCacheSize();
+    public long getLongCacheSize() {
+        final LocalMapStats stats = map.getLocalMapStats();
+        return stats.getOwnedEntryCount();
     }
 
     @Override
-    public long getLongCacheSize() {
-        final LocalMapStats stats = map.getLocalMapStats();
-        return stats.getOwnedEntryMemoryCost() + stats.getBackupEntryMemoryCost();
+    public String getCacheSizeRemark() {
+        return "entire cluster: " + LocaleUtils.getLocalizedNumber(map.size());
     }
 
     @Override
     public long getMaxCacheSize() {
-        return CacheFactory.getMaxCacheSize(getName());
-    }
-
-    @Override
-    public void setMaxCacheSize(int i) {
-        setMaxCacheSize((long) i);
+        return config.getMaxSizeConfig().getSize();
     }
 
     @Override
     public void setMaxCacheSize(final long maxSize) {
-        CacheFactory.setMaxSizeProperty(getName(), maxSize);
+        CacheFactory.setMaxSizeProperty(getName(), maxSize); // TODO determine (and document) if setting this property makes sense. Non-dynamic caches won't ever use it, I think. Maybe log a warning?
+    }
+
+    @Override
+    public String getMaxCacheSizeRemark() {
+        switch (config.getMaxSizeConfig().getMaxSizePolicy()) {
+            case PER_NODE:
+                return "per node";
+            case PER_PARTITION:
+                return "per partition";
+        }
+        return null;
     }
 
     @Override
     public long getMaxLifetime() {
-        return CacheFactory.getMaxCacheLifetime(getName());
+        return config.getTimeToLiveSeconds() * 1000L;
     }
 
     @Override
     public void setMaxLifetime(final long maxLifetime) {
-        CacheFactory.setMaxLifetimeProperty(getName(), maxLifetime);
+        CacheFactory.setMaxLifetimeProperty(getName(), maxLifetime); // TODO determine (and document) if setting this property makes sense. Non-dynamic caches won't ever use it, I think. Maybe log a warning?
     }
 
     void destroy() {
