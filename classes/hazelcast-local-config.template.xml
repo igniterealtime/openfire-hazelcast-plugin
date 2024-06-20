@@ -2,12 +2,13 @@
 <hazelcast xmlns="http://www.hazelcast.com/schema/config"
            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
            xsi:schemaLocation="http://www.hazelcast.com/schema/config
-           http://www.hazelcast.com/schema/config/hazelcast-config-5.3.xsd">
+           https://www.hazelcast.com/schema/config/hazelcast-config-5.3.xsd">
     <!-- Recommend you open cp subsystem on your cluster -->
     <cp-subsystem>
         <cp-member-count>3</cp-member-count>
         <group-size>3</group-size>
     </cp-subsystem>
+    <jet enabled="true"/>
     <network>
         <port auto-increment="true" port-count="100">5701</port>
         <outbound-ports>
