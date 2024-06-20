@@ -15,15 +15,14 @@
  */
 package org.jivesoftware.openfire.plugin.util.cache;
 
-import com.hazelcast.core.Cluster;
+import com.hazelcast.cluster.Cluster;
 import com.hazelcast.core.EntryListener;
 import com.hazelcast.core.LifecycleEvent;
 import com.hazelcast.core.LifecycleEvent.LifecycleState;
 import com.hazelcast.core.LifecycleListener;
-import com.hazelcast.core.Member;
-import com.hazelcast.core.MemberAttributeEvent;
-import com.hazelcast.core.MembershipEvent;
-import com.hazelcast.core.MembershipListener;
+import com.hazelcast.cluster.Member;
+import com.hazelcast.cluster.MembershipEvent;
+import com.hazelcast.cluster.MembershipListener;
 import org.jivesoftware.openfire.XMPPServer;
 import org.jivesoftware.openfire.cluster.ClusterManager;
 import org.jivesoftware.openfire.cluster.ClusterNodeInfo;
@@ -266,16 +265,6 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
             joinCluster();
         }
     }
-
-    @Override
-    public void memberAttributeChanged(final MemberAttributeEvent event) {
-        logger.info("Received a Hazelcast memberAttributeChanged event {}", event);
-        isSenior = isSeniorClusterMember();
-        final ClusterNodeInfo priorNodeInfo = clusterNodesInfo.get(ClusteredCacheFactory.getNodeID(event.getMember()));
-        clusterNodesInfo.put(ClusteredCacheFactory.getNodeID(event.getMember()),
-                new HazelcastClusterNodeInfo(event.getMember(), priorNodeInfo.getJoinedTime()));
-    }
-
     boolean isClusterMember() {
         return clusterMember;
     }
