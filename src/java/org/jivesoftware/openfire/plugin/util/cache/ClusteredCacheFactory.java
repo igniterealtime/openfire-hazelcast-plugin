@@ -134,8 +134,8 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
     private static HazelcastInstance hazelcast = null;
     private static Cluster cluster = null;
     private ClusterListener clusterListener;
-    private String lifecycleListener;
-    private String membershipListener;
+    private UUID lifecycleListener;
+    private UUID membershipListener;
 
     /**
      * Keeps that running state. Initial state is stopped.
@@ -191,8 +191,8 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
                 // CacheFactory is now using clustered caches. We can add our listeners.
                 clusterListener = new ClusterListener(cluster);
                 clusterListener.joinCluster();
-                lifecycleListener = hazelcast.getLifecycleService().addLifecycleListener(clusterListener).toString();
-                membershipListener = cluster.addMembershipListener(clusterListener).toString();
+                lifecycleListener = hazelcast.getLifecycleService().addLifecycleListener(clusterListener);
+                membershipListener = cluster.addMembershipListener(clusterListener);
                 logger.info("Hazelcast clustering started");
                 break;
             } catch (final Exception e) {
@@ -230,8 +230,8 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
         // cluster is shutdown so it can be copied in to the non-clustered, DefaultCache
         fireLeftClusterAndWaitToComplete(Duration.ofSeconds(30));
         // Stop the cluster
-        hazelcast.getLifecycleService().removeLifecycleListener(UUID.fromString(lifecycleListener));
-        cluster.removeMembershipListener(UUID.fromString(membershipListener));
+        hazelcast.getLifecycleService().removeLifecycleListener(lifecycleListener);
+        cluster.removeMembershipListener(membershipListener);
         Hazelcast.shutdownAll();
         cluster = null;
         lifecycleListener = null;
