@@ -44,8 +44,6 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
-import static com.hazelcast.config.MaxSizePolicy.PER_PARTITION;
-
 /**
  * Clustered implementation of the Cache interface using Hazelcast.
  *
@@ -54,7 +52,7 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
 
     private final Logger logger;
 
-    private final Set<String> listeners = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> listeners = ConcurrentHashMap.newKeySet();
 
     /**
      * The map is used for distributed operations such as get, put, etc.
@@ -89,7 +87,7 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
     }
 
     void addEntryListener(final MapListener listener) {
-        listeners.add(map.addEntryListener(listener, false).toString());
+        listeners.add(map.addEntryListener(listener, false));
     }
 
     @Override
@@ -160,10 +158,10 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
             }
         };
 
-        final String listenerId = map.addEntryListener(listener, includeValues).toString();
+        final UUID listenerId = map.addEntryListener(listener, includeValues);
         listeners.add(listenerId);
         logger.debug("Added new clustered cache entry listener (including values: {}, includeEventsFromLocalNode: {}) using ID: '{}'", includeValues, includeEventsFromLocalNode, listenerId);
-        return listenerId;
+        return listenerId.toString();
     }
 
     @Override
@@ -334,7 +332,7 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
     }
 
     void destroy() {
-        listeners.forEach(listener->map.removeEntryListener(UUID.fromString(listener)));
+        listeners.forEach(map::removeEntryListener);
         map.destroy();
     }
 
