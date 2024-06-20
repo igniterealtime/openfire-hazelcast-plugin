@@ -16,6 +16,9 @@
         <developer>
             <name>Tom Evans</name>
         </developer>
+        <developer>
+            <name>Wentao Chang</name>
+        </developer>
     </developers>
 
     <repositories>
@@ -44,7 +47,7 @@
         <dependency>
             <groupId>com.hazelcast</groupId>
             <artifactId>hazelcast</artifactId>
-            <version>3.12.5</version>
+            <version>5.3.7</version>
         </dependency>
         <dependency>
             <groupId>junit</groupId>

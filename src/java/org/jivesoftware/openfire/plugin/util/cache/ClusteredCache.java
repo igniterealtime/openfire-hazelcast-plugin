@@ -18,10 +18,10 @@ package org.jivesoftware.openfire.plugin.util.cache;
 import com.hazelcast.config.MapConfig;
 import com.hazelcast.core.EntryEvent;
 import com.hazelcast.core.EntryListener;
-import com.hazelcast.core.IMap;
-import com.hazelcast.core.MapEvent;
+import com.hazelcast.map.IMap;
+import com.hazelcast.map.MapEvent;
 import com.hazelcast.map.listener.MapListener;
-import com.hazelcast.monitor.LocalMapStats;
+import com.hazelcast.map.LocalMapStats;
 import org.jivesoftware.openfire.XMPPServer;
 import org.jivesoftware.openfire.cluster.ClusteredCacheEntryListener;
 import org.jivesoftware.openfire.cluster.NodeID;
@@ -40,8 +40,11 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+
+import static com.hazelcast.config.MaxSizePolicy.PER_PARTITION;
 
 /**
  * Clustered implementation of the Cache interface using Hazelcast.
@@ -86,13 +89,22 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
     }
 
     void addEntryListener(final MapListener listener) {
-        listeners.add(map.addEntryListener(listener, false));
+        listeners.add(map.addEntryListener(listener, false).toString());
     }
 
     @Override
     public String addClusteredCacheEntryListener(@Nonnull final ClusteredCacheEntryListener<K, V> clusteredCacheEntryListener, final boolean includeValues, final boolean includeEventsFromLocalNode)
     {
         final EntryListener<K, V> listener = new EntryListener<K, V>() {
+            @Override
+            public void entryExpired(EntryEvent<K, V> event) {
+                if (includeEventsFromLocalNode || !event.getMember().localMember()) {
+                    final NodeID eventNodeId = ClusteredCacheFactory.getNodeID(event.getMember());
+                    logger.trace("Processing map expired event of node '{}'", eventNodeId);
+                    entryRemoved(event);
+                }
+            }
+
             @Override
             public void mapEvicted(MapEvent event) {
                 if (includeEventsFromLocalNode || !event.getMember().localMember()) {
@@ -112,7 +124,7 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
             }
 
             @Override
-            public void entryUpdated(EntryEvent event) {
+            public void entryUpdated(EntryEvent<K, V> event) {
                 if (includeEventsFromLocalNode || !event.getMember().localMember()) {
                     final NodeID eventNodeId = ClusteredCacheFactory.getNodeID(event.getMember());
                     logger.trace("Processing entry update event of node '{}' for key '{}'", eventNodeId, event.getKey());
@@ -121,7 +133,7 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
             }
 
             @Override
-            public void entryRemoved(EntryEvent event) {
+            public void entryRemoved(EntryEvent<K, V> event) {
                 if (includeEventsFromLocalNode || !event.getMember().localMember()) {
                     final NodeID eventNodeId = ClusteredCacheFactory.getNodeID(event.getMember());
                     logger.trace("Processing entry removed event of node '{}' for key '{}'", eventNodeId, event.getKey());
@@ -130,7 +142,7 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
             }
 
             @Override
-            public void entryEvicted(EntryEvent event) {
+            public void entryEvicted(EntryEvent<K, V> event) {
                 if (includeEventsFromLocalNode || !event.getMember().localMember()) {
                     final NodeID eventNodeId = ClusteredCacheFactory.getNodeID(event.getMember());
                     logger.trace("Processing entry evicted event of node '{}' for key '{}'", eventNodeId, event.getKey());
@@ -139,7 +151,7 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
             }
 
             @Override
-            public void entryAdded(EntryEvent event) {
+            public void entryAdded(EntryEvent<K, V> event) {
                 if (includeEventsFromLocalNode || !event.getMember().localMember()) {
                     final NodeID eventNodeId = ClusteredCacheFactory.getNodeID(event.getMember());
                     logger.trace("Processing entry added event of node '{}' for key '{}'", eventNodeId, event.getKey());
@@ -148,7 +160,7 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
             }
         };
 
-        final String listenerId = map.addEntryListener(listener, includeValues);
+        final String listenerId = map.addEntryListener(listener, includeValues).toString();
         listeners.add(listenerId);
         logger.debug("Added new clustered cache entry listener (including values: {}, includeEventsFromLocalNode: {}) using ID: '{}'", includeValues, includeEventsFromLocalNode, listenerId);
         return listenerId;
@@ -157,7 +169,7 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
     @Override
     public void removeClusteredCacheEntryListener(@Nonnull final String listenerId) {
         logger.debug("Removing clustered cache entry listener: '{}'", listenerId);
-        map.removeEntryListener(listenerId);
+        map.removeEntryListener(UUID.fromString(listenerId));
         listeners.remove(listenerId);
     }
 
@@ -169,7 +181,7 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
      * @return the unit to be used to calculate the capacity of this cache.
      */
     public CapacityUnit getCapacityUnit() {
-        switch (config.getMaxSizeConfig().getMaxSizePolicy()) {
+        switch (config.getEvictionConfig().getMaxSizePolicy()) {
             case PER_PARTITION:
             case PER_NODE:
                 return CapacityUnit.ENTITIES;
@@ -292,7 +304,7 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
 
     @Override
     public long getMaxCacheSize() {
-        return config.getMaxSizeConfig().getSize();
+        return config.getEvictionConfig().getSize();
     }
 
     @Override
@@ -302,7 +314,7 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
 
     @Override
     public String getMaxCacheSizeRemark() {
-        switch (config.getMaxSizeConfig().getMaxSizePolicy()) {
+        switch (config.getEvictionConfig().getMaxSizePolicy()) {
             case PER_NODE:
                 return "per node";
             case PER_PARTITION:
@@ -322,7 +334,7 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
     }
 
     void destroy() {
-        listeners.forEach(map::removeEntryListener);
+        listeners.forEach(listener->map.removeEntryListener(UUID.fromString(listener)));
         map.destroy();
     }
 

@@ -210,18 +210,15 @@ refreshed every 10 seconds.
 
                             <%  if (percent >= 90) { %>
 
-                                <td width="<%= percent %>%" background="../../images/percent-bar-used-high.gif" style="padding:0px;"
-                                    ><img src="images/blank.gif" width="1" height="4" border="0" alt=""></td>
+                                <td height="8px" width="<%= percent %>%" background="../../images/percent-bar-used-high.gif" style="padding:0px;"></td>
 
                             <%  } else { %>
 
-                                <td width="<%= percent %>%" background="../../images/percent-bar-used-low.gif" style="padding:0px;"
-                                    ><img src="images/blank.gif" width="1" height="4" border="0" alt=""></td>
+                                <td height="8px" width="<%= percent %>%" background="../../images/percent-bar-used-low.gif" style="padding:0px;"></td>
 
                             <%  } %>
 
-                            <td width="<%= (100-percent) %>%" background="../../images/percent-bar-left.gif" style="padding:0px;"
-                                ><img src="images/blank.gif" width="1" height="4" border="0" alt=""></td>
+                            <td height="8px" width="<%= (100-percent) %>%" background="../../images/percent-bar-left.gif" style="padding:0px;"></td>
 
                         <%  } %>
                     </tr>
