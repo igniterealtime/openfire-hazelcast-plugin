@@ -63,7 +63,7 @@ open source <a href="http://www.hazelcast.org">Hazelcast In-Memory Data Grid</a>
 framework in lieu of an expensive proprietary third-party product.
 </p>
 <p>
-The current version of the plugin uses Hazelcast release 3.12.5
+The current version of the plugin uses Hazelcast release 5.3.7
 </p>
 <h3>Clustering vs. Federation</h3>
 <p>XMPP is designed to scale in ways that are similar to email. Each Openfire
@@ -202,13 +202,13 @@ that will be added to the plugin's classpath. This allows a custom Hazelcast
 configuration file to be located outside the Openfire home directory.</li>
 <li><em>hazelcast.config.jmx.enabled</em> (false): Enables JMX support for
 the Hazelcast cluster if JMX has been enabled via the Openfire admin console.
-Refer to the <a href="http://docs.hazelcast.org/docs/3.12.5/manual/html-single/index.html#monitoring-with-jmx">
+Refer to the <a href="https://docs.hazelcast.com/hazelcast/5.3/maintain-cluster/monitoring#monitoring-with-jmx">
 Hazelcast JMX docs</a> for additional information.</li>
 </ol>
 <em>Note:</em> The default <code>hazelcast-cache-config.xml</code> file included with the plugin will include a file
 <code>conf/hazelcast-local-config.xml</code> that will be preserved between plugin updates. It is recommended that
 local changes are kept in this file.
-<p>The Hazelcast plugin uses the <a href="http://docs.hazelcast.org/docs/3.12.5/manual/html-single/index.html#configuring-declaratively">
+<p>The Hazelcast plugin uses the <a href="https://docs.hazelcast.com/hazelcast/5.3/configuration/configuring-declaratively">
 XML configuration builder</a> to initialize the cluster from the XML file <code>conf/hazelcast-local-config.xml</code>.
 By default the cluster members will attempt to discover each other via UDP multicast at the
 following location:
@@ -233,7 +233,7 @@ following alternative:
 &lt;/join&gt;
 ...
 </pre>
-<p>Please refer to the <a href="http://docs.hazelcast.org/docs/3.12.5/manual/html-single/index.html">
+<p>Please refer to the <a href="https://docs.hazelcast.com/hazelcast/5.3/">
 Hazelcast reference manual</a> for more information.
 </p>
 <h3>A Word About Garbage Collection</h3>
@@ -300,6 +300,23 @@ Notes;
         has been created.
     </li>
 </ul>
+
+<h2>Q&A for upgrade hazelcast.jar from 2.6.1 to 3.0.0</h2>
+<h3>CP Subsystem</h3>
+<p><a href="https://docs.hazelcast.com/hazelcast/5.3/cp-subsystem/cp-subsystem">CP Subsystem</a> is a component of a
+Hazelcast cluster that builds a strongly consistent layer for a set of distributed data structures. As well as
+network partitions, the CP Subsystem withstands server and client failures.</p>
+<p>If missed the configuration of CP Subsystem, you will occur logs like this:</p>
+<p><code>2024.06.28 13:44:23 WARN  [PluginMonitorTask-2]: com.hazelcast.cp.CPSubsystem - [10.42.0.165]:5701
+    [openfire-cluster-by-hazelcast] [5.3.7] CP Subsystem is not enabled. CP data structures will operate in
+    UNSAFE mode! Please note that UNSAFE mode will not provide strong consistency guarantees.</code></p>
+<p>You can add the below config to your hazelcast-local-config.xml</p>
+<pre>
+&lt;cp-subsystem&gt;
+    &lt;cp-member-count&gt;3&lt;/cp-member-count&gt;
+    &lt;group-size&gt;3&lt;/group-size&gt;
+&lt;/cp-subsystem&gt;
+</pre>
 
 </body>
 </html>
