@@ -8,7 +8,6 @@
         <cp-member-count>3</cp-member-count>
         <group-size>3</group-size>
     </cp-subsystem>
-    <jet enabled="true"/>
     <network>
         <port auto-increment="true" port-count="100">5701</port>
         <outbound-ports>
