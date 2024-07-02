@@ -31,7 +31,6 @@
             <tcp-ip enabled="true">
                 <member>10.10.1.1:5701</member>
                 <member>10.10.1.2:5701</member>
-               </member-list>
             </tcp-ip>
         </join>
         -->
