@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2009 Jive Software, 2022 Ignite Realtime Foundation. All rights reserved.
+ * Copyright (C) 2004-2009 Jive Software, 2022-2024 Ignite Realtime Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -80,7 +80,7 @@ public class HazelcastPlugin implements Plugin {
         LOGGER.info("All plugins have initialized; initializing clustering");
 
         try {
-            final Path pathToLocalHazelcastConfig = Paths.get(JiveGlobals.getHomeDirectory(), "conf/hazelcast-local-config.xml");
+            final Path pathToLocalHazelcastConfig = JiveGlobals.getHomePath().resolve("conf/hazelcast-local-config.xml");
             if (!Files.exists(pathToLocalHazelcastConfig)) {
                 Files.copy(Paths.get(hazelcastPluginDirectory.getAbsolutePath(), "classes/hazelcast-local-config.template.xml"), pathToLocalHazelcastConfig);
             }
