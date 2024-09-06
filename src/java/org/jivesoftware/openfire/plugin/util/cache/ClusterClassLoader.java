@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2009 Jive Software. All rights reserved.
+ * Copyright (C) 2007-2009 Jive Software, 2024 Ignite Realtime Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ public class ClusterClassLoader extends ClassLoader {
 
     private static final SystemProperty<String> HAZELCAST_CONFIG_DIR = SystemProperty.Builder.ofType(String.class)
         .setKey("hazelcast.config.xml.directory")
-        .setDefaultValue(JiveGlobals.getHomeDirectory() + "/conf")
+        .setDefaultValue(JiveGlobals.getHomePath().resolve("conf").toString())
         .setDynamic(false)
         .setPlugin(HazelcastPlugin.PLUGIN_NAME)
         .build();
