@@ -143,6 +143,14 @@ compared with a traditional plugin due to the cross-server dependencies within a
 cluster. Practically speaking, all the members of the cluster need to be running the
 same version of the plugin to prevent various errors and data synchronization issues.
 </p>
+<p>
+Before upgrading, ensure that the configuration of your system is still compatible with that of the new plugin. When the
+new Openfire plugin is based on a newer version of the Hazelcast project than the previous plugin that you used, your
+<code>conf/hazelcast-local-config.xml</code> configuration file might no longer be compatible. This is notably the case
+when upgrading to the Openfire Hazelcast plugin version 3.0.0 from an earlier plugin (as this version updates Hazelcast
+from 3 to 5). In such cases, it is advisable to compare the content of <code>conf/hazelcast-local-config.xml</code> with
+that of a fresh copy. Refer to the FAQ at the bottom of this document for known changes.
+</p>
 <h3>Option 1: Offline</h3>
 <p><strong>NOTE:</strong> This upgrade procedure is neat and tidy, but will incur a brief service outage.
 </p>
@@ -301,16 +309,55 @@ Notes;
     </li>
 </ul>
 
-<h2>Q&A for upgrade hazelcast.jar from 2.6.1 to 3.0.0</h2>
+<h2>Q&A for upgrade hazelcast.jar from 2.6.1 to 3.0.0 (which upgrades Hazelcast from 3 to 5)</h2>
+<p>
+    When upgrading to hazelcast.jar 3.0.0 from an earlier version, a major upgrade of the Hazelcast library is
+    introduced (from 3.x to 5.x). The configuration in <code>conf/hazelcast-local-config.xml</code> will require
+    modification for clustering functionality to be restored.
+</p>
+<p>
+    It is advisable to backup <code>conf/hazelcast-local-config.xml</code>, remove it, and have it generated anew, to
+    then manually apply previously applied configuration changes.
+</p>
+<p>
+    Known configuration changes with this particular upgrade are listed below.
+</p>
+<h3>Group definition</h3>
+<p>
+    Hazelcast 5 no longer recognized the 'group' configuration element. When your configuration in
+    <code>conf/hazelcast-local-config.xml</code> contains a snippet like the following, you can remove these lines from
+    the file.</p>
+<pre>
+&lt;group&gt;
+    &lt;name&gt;openfire&lt;/name&gt;
+    &lt;password>mysecret&lt;/password&gt;
+    &lt;/group&gt;
+</pre>
+<p>
+    With the offending lines in your configuration, the Hazelcast plugin will fail to start up, logging errors like these:
+</p>
+<pre>
+org.jivesoftware.openfire.plugin.util.cache.ClusteredCacheFactory - Unable to start clustering - continuing in local mode
+com.hazelcast.config.InvalidConfigurationException: cvc-complex-type.2.4.a: Invalid content was found starting with element '{"http://www.hazelcast.com/schema/config":group}'.
+</pre>
+
 <h3>CP Subsystem</h3>
-<p><a href="https://docs.hazelcast.com/hazelcast/5.3/cp-subsystem/cp-subsystem">CP Subsystem</a> is a component of a
-Hazelcast cluster that builds a strongly consistent layer for a set of distributed data structures. As well as
-network partitions, the CP Subsystem withstands server and client failures.</p>
-<p>If missed the configuration of CP Subsystem, you will occur logs like this:</p>
-<p><code>2024.06.28 13:44:23 WARN  [PluginMonitorTask-2]: com.hazelcast.cp.CPSubsystem - [10.42.0.165]:5701
+<p>
+    <a href="https://docs.hazelcast.com/hazelcast/5.3/cp-subsystem/cp-subsystem">CP Subsystem</a> is a component of a
+    Hazelcast cluster that builds a strongly consistent layer for a set of distributed data structures. As well as
+    network partitions, the CP Subsystem withstands server and client failures.
+</p>
+<p>
+    If missed the configuration of CP Subsystem, you will occur logs like this:
+</p>
+<p>
+    <code>2024.06.28 13:44:23 WARN  [PluginMonitorTask-2]: com.hazelcast.cp.CPSubsystem - [10.42.0.165]:5701
     [openfire-cluster-by-hazelcast] [5.3.7] CP Subsystem is not enabled. CP data structures will operate in
-    UNSAFE mode! Please note that UNSAFE mode will not provide strong consistency guarantees.</code></p>
-<p>You can add the below config to your hazelcast-local-config.xml</p>
+    UNSAFE mode! Please note that UNSAFE mode will not provide strong consistency guarantees.</code>
+</p>
+<p>
+    You can add the below config to your <code>conf/hazelcast-local-config.xml</code>
+</p>
 <pre>
 &lt;cp-subsystem&gt;
     &lt;cp-member-count&gt;3&lt;/cp-member-count&gt;
