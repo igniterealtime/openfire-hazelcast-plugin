@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1999-2009 Jive Software. All rights reserved.
+ * Copyright (C) 1999-2009 Jive Software, 2024 Ignite Realtime Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 package org.jivesoftware.openfire.plugin.util.cache;
 
 import com.hazelcast.cluster.Cluster;
-import com.hazelcast.core.EntryListener;
 import com.hazelcast.core.LifecycleEvent;
 import com.hazelcast.core.LifecycleEvent.LifecycleState;
 import com.hazelcast.core.LifecycleListener;
@@ -29,16 +28,13 @@ import org.jivesoftware.openfire.cluster.ClusterNodeInfo;
 import org.jivesoftware.openfire.cluster.NodeID;
 import org.jivesoftware.openfire.muc.cluster.NewClusterMemberJoinedTask;
 import org.jivesoftware.openfire.plugin.util.cluster.HazelcastClusterNodeInfo;
-import org.jivesoftware.util.cache.Cache;
 import org.jivesoftware.util.cache.CacheFactory;
-import org.jivesoftware.util.cache.CacheWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.time.LocalTime;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -54,8 +50,6 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
 
     private boolean seniorClusterMember = false;
 
-    private final Map<Cache<?,?>, EntryListener> entryListeners = new HashMap<>();
-    
     private final Cluster cluster;
     private final Map<NodeID, ClusterNodeInfo> clusterNodesInfo = new ConcurrentHashMap<>();
     
@@ -77,17 +71,6 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
         for (final Member member : cluster.getMembers()) {
             clusterNodesInfo.put(ClusteredCacheFactory.getNodeID(member),
                     new HazelcastClusterNodeInfo(member, cluster.getClusterTime()));
-        }
-    }
-
-    private void addEntryListener(final Cache<?, ?> cache, final EntryListener listener) {
-        if (cache instanceof CacheWrapper) {
-            final Cache wrapped = ((CacheWrapper)cache).getWrappedCache();
-            if (wrapped instanceof ClusteredCache) {
-                ((ClusteredCache)wrapped).addEntryListener(listener);
-                // Keep track of the listener that we added to the cache
-                entryListeners.put(cache, listener);
-            }
         }
     }
 
