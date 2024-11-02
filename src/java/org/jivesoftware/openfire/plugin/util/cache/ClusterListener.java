@@ -33,12 +33,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.*;
 
 /**
  * ClusterListener reacts to membership changes in the cluster. It takes care of cleaning up the state
@@ -50,7 +51,7 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
 
     private boolean seniorClusterMember = false;
 
-    private final Cluster cluster;
+    private final CompletableFuture<Cluster> clusterFuture = new CompletableFuture<>();
     private final Map<NodeID, ClusterNodeInfo> clusterNodesInfo = new ConcurrentHashMap<>();
     
     /**
@@ -65,12 +66,26 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
     private boolean clusterMember = false;
     private boolean isSenior;
 
-    ClusterListener(final Cluster cluster) {
+    synchronized void register(final Cluster cluster) {
+        this.clusterFuture.complete(cluster);
 
-        this.cluster = cluster;
         for (final Member member : cluster.getMembers()) {
             clusterNodesInfo.put(ClusteredCacheFactory.getNodeID(member),
                     new HazelcastClusterNodeInfo(member, cluster.getClusterTime()));
+        }
+    }
+
+    synchronized void unregister() {
+        if (!this.clusterFuture.isDone()) {
+            this.clusterFuture.cancel(true);
+        }
+    }
+
+    private Cluster getCluster() {
+        try {
+            return clusterFuture.get(Duration.ofMinutes(5).toMillis(), TimeUnit.MILLISECONDS);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            throw new RuntimeException("Cluster initialization failed", e);
         }
     }
 
@@ -81,6 +96,10 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
 
     synchronized void joinCluster() {
         if (!isDone()) { // already joined
+            return;
+        }
+
+        if (!clusterFuture.isDone()) { // cluster still initializing.
             return;
         }
 
@@ -101,14 +120,14 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
         CacheFactory.doClusterTask(new NewClusterMemberJoinedTask());
 
         logger.info("Joined cluster. XMPPServer node={}, Hazelcast UUID={}, seniorClusterMember={}",
-            new Object[]{ClusteredCacheFactory.getNodeID(cluster.getLocalMember()), cluster.getLocalMember().getUuid(), seniorClusterMember});
+            ClusteredCacheFactory.getNodeID(getCluster().getLocalMember()), getCluster().getLocalMember().getUuid(), seniorClusterMember);
         done = false;
     }
 
     boolean isSeniorClusterMember() {
         // first cluster member is the oldest
-        final Iterator<Member> members = cluster.getMembers().iterator();
-        return members.next().getUuid().equals(cluster.getLocalMember().getUuid());
+        final Iterator<Member> members = getCluster().getMembers().iterator();
+        return members.next().getUuid().equals(getCluster().getLocalMember().getUuid());
     }
 
     private synchronized void leaveCluster() {
@@ -129,7 +148,7 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
             XMPPServer.getInstance().getPresenceUpdateHandler().removedExpiredPresences();
         }
         logger.info("Left cluster. XMPPServer node={}, Hazelcast UUID={}, wasSeniorClusterMember={}",
-            new Object[]{ClusteredCacheFactory.getNodeID(cluster.getLocalMember()), cluster.getLocalMember().getUuid(), wasSeniorClusterMember});
+            ClusteredCacheFactory.getNodeID(getCluster().getLocalMember()), getCluster().getLocalMember().getUuid(), wasSeniorClusterMember);
         done = true;
     }
 
@@ -137,39 +156,46 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
     public void memberAdded(final MembershipEvent event) {
         logger.info("Received a Hazelcast memberAdded event {}", event);
 
-        final boolean wasSenior = isSenior;
-        isSenior = isSeniorClusterMember();
-        // local member only
         final NodeID nodeID = ClusteredCacheFactory.getNodeID(event.getMember());
-        if (event.getMember().localMember()) { // We left and re-joined the cluster
-            joinCluster();
+        if (clusterFuture.isDone())
+        {
+            final boolean wasSenior = isSenior;
+            isSenior = isSeniorClusterMember();
+            // local member only
+            if (event.getMember().localMember()) { // We left and re-joined the cluster
+                joinCluster();
 
-        } else {
-            if (wasSenior && !isSenior) {
-                logger.warn("Recovering from split-brain; firing leftCluster()/joinedCluster() events");
-                ClusteredCacheFactory.fireLeftClusterAndWaitToComplete(Duration.ofSeconds(30));
-                logger.debug("Firing joinedCluster() event");
-                ClusterManager.fireJoinedCluster(false);
+            } else {
+                if (wasSenior && !isSenior) {
+                    logger.warn("Recovering from split-brain; firing leftCluster()/joinedCluster() events");
+                    ClusteredCacheFactory.fireLeftClusterAndWaitToComplete(Duration.ofSeconds(30));
+                    logger.debug("Firing joinedCluster() event");
+                    ClusterManager.fireJoinedCluster(false);
 
-                try {
-                    logger.debug("Postponing notification of other nodes for 30 seconds. This allows all local leave/join processing to be finished and local cache backups to be stabilized before receiving events from other nodes.");
-                    Thread.sleep(30000L);
-                } catch (InterruptedException e) {
-                    logger.warn("30 Second wait was interrupted.", e);
+                    try {
+                        logger.debug("Postponing notification of other nodes for 30 seconds. This allows all local leave/join processing to be finished and local cache backups to be stabilized before receiving events from other nodes.");
+                        Thread.sleep(30000L);
+                    } catch (InterruptedException e) {
+                        logger.warn("30 Second wait was interrupted.", e);
+                    }
+
+                    // The following line was intended to wait until all local handling finishes before informing other
+                    // nodes. However that proved to be insufficient. Hence the 30 second default wait in the lines above.
+                    // TODO Instead of the 30 second wait, we should look (and then wait) for some trigger or event that signifies that local handling has completed and caches have stabilized.
+                    waitForClusterCacheToBeInstalled();
+
+                    // Let the other nodes know that we joined the cluster
+                    logger.debug("Done joining the cluster in split brain recovery. Now proceed informing other nodes that we joined the cluster.");
+                    CacheFactory.doClusterTask(new NewClusterMemberJoinedTask());
                 }
-
-                // The following line was intended to wait until all local handling finishes before informing other
-                // nodes. However that proved to be insufficient. Hence the 30 second default wait in the lines above.
-                // TODO Instead of the 30 second wait, we should look (and then wait) for some trigger or event that signifies that local handling has completed and caches have stabilized.
-                waitForClusterCacheToBeInstalled();
-
-                // Let the other nodes know that we joined the cluster
-                logger.debug("Done joining the cluster in split brain recovery. Now proceed informing other nodes that we joined the cluster.");
-                CacheFactory.doClusterTask(new NewClusterMemberJoinedTask());
             }
+            clusterNodesInfo.put(nodeID,
+                new HazelcastClusterNodeInfo(event.getMember(), getCluster().getClusterTime()));
+        } else {
+            logger.info("Skip memberAdded event {} processing while cluster is being initialized.", event);
+            clusterNodesInfo.put(nodeID,
+                new HazelcastClusterNodeInfo(event.getMember(), Instant.now().toEpochMilli()));
         }
-        clusterNodesInfo.put(nodeID,
-                new HazelcastClusterNodeInfo(event.getMember(), cluster.getClusterTime()));
     }
 
     /**
