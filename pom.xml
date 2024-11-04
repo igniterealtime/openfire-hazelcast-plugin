@@ -8,11 +8,18 @@
     </parent>
     <groupId>org.igniterealtime.openfire.plugins</groupId>
     <artifactId>hazelcast</artifactId>
-    <version>3.1.1-SNAPSHOT</version>
+    <version>5.5.0.1-SNAPSHOT</version>
     <name>Hazelcast Plugin</name>
     <description>Adds clustering support</description>
 
     <developers>
+        <developer>
+            <name>Guus der Kinderen</name>
+            <email>guus.der.kinderen@gmail.com</email>
+            <timezone>+1</timezone>
+            <organization>Ignite Realtime</organization>
+            <organizationUrl>http://www.igniterealtime.org</organizationUrl>
+        </developer>
         <developer>
             <name>Tom Evans</name>
         </developer>
@@ -34,6 +41,15 @@
         <sourceDirectory>src/java</sourceDirectory>
         <plugins>
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.8.0</version>
+                <configuration>
+                    <source>17</source>
+                    <target>17</target>
+                </configuration>
+            </plugin>
+            <plugin>
                 <artifactId>maven-assembly-plugin</artifactId>
             </plugin>
             <plugin>
@@ -47,7 +63,7 @@
         <dependency>
             <groupId>com.hazelcast</groupId>
             <artifactId>hazelcast</artifactId>
-            <version>5.3.7</version>
+            <version>5.5.0</version>
         </dependency>
         <dependency>
             <groupId>junit</groupId>

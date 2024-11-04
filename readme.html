@@ -63,7 +63,7 @@ open source <a href="http://www.hazelcast.org">Hazelcast In-Memory Data Grid</a>
 framework in lieu of an expensive proprietary third-party product.
 </p>
 <p>
-The current version of the plugin uses Hazelcast release 5.3.7
+The current version of the plugin uses Hazelcast release 5.5.0
 </p>
 <h3>Clustering vs. Federation</h3>
 <p>XMPP is designed to scale in ways that are similar to email. Each Openfire
@@ -129,6 +129,13 @@ could provide a workable solution. Some other popular options include the
 <a href="http://www.f5.com/products/big-ip/big-ip-local-traffic-manager/overview/">F5 LTM</a>
 (commercial) and <a href="http://haproxy.1wt.eu/">HAProxy</a> (open source), among
 <a href="http://en.wikipedia.org/wiki/Load_balancing_%28computing%29">many more</a>.
+<p>
+Basic load balancing can be achieved through DNS. Openfire's <a href="https://download.igniterealtime.org/openfire/docs/latest/documentation/network-configuration-guide.html#dns">Network Configuration Guide</a>
+describes how DNS SRV records are used to resolve the servers that are part of your Openfire XMPP domain.
+<a href="https://datatracker.ietf.org/doc/html/rfc2782">A DNS SRV record</a> has 'priority' and 'weight' attributes
+that can easily be used to configure load balancing support. This does require client support. Most TCP-based XMPP
+client libraries provide such support, although DNS SRV support for web-based clients is typically lacking.
+</p>
 <p>
 A simple round-robin DNS configuration can help distribute XMPP connections across multiple
 Openfire servers in a cluster. While popular as a lightweight and low-cost way to provide
@@ -210,13 +217,13 @@ that will be added to the plugin's classpath. This allows a custom Hazelcast
 configuration file to be located outside the Openfire home directory.</li>
 <li><em>hazelcast.config.jmx.enabled</em> (false): Enables JMX support for
 the Hazelcast cluster if JMX has been enabled via the Openfire admin console.
-Refer to the <a href="https://docs.hazelcast.com/hazelcast/5.3/maintain-cluster/monitoring#monitoring-with-jmx">
+Refer to the <a href="https://docs.hazelcast.com/hazelcast/5.5/maintain-cluster/monitoring#monitoring-with-jmx">
 Hazelcast JMX docs</a> for additional information.</li>
 </ol>
 <em>Note:</em> The default <code>hazelcast-cache-config.xml</code> file included with the plugin will include a file
 <code>conf/hazelcast-local-config.xml</code> that will be preserved between plugin updates. It is recommended that
 local changes are kept in this file.
-<p>The Hazelcast plugin uses the <a href="https://docs.hazelcast.com/hazelcast/5.3/configuration/configuring-declaratively">
+<p>The Hazelcast plugin uses the <a href="https://docs.hazelcast.com/hazelcast/5.5/configuration/configuring-declaratively">
 XML configuration builder</a> to initialize the cluster from the XML file <code>conf/hazelcast-local-config.xml</code>.
 By default the cluster members will attempt to discover each other via UDP multicast at the
 following location:
@@ -241,13 +248,16 @@ following alternative:
 &lt;/join&gt;
 ...
 </pre>
-<p>Please refer to the <a href="https://docs.hazelcast.com/hazelcast/5.3/">
+<p>Please refer to the <a href="https://docs.hazelcast.com/hazelcast/5.5/">
 Hazelcast reference manual</a> for more information.
 </p>
 <h3>A Word About Garbage Collection</h3>
 <p>Hazelcast is quite sensitive to delays that may be caused by long-running GC cycles which are typical 
-of servers using a default runtime JVM configuration. In most cases it will be preferable to activate the 
-concurrent garbage collector (CMS) or the new G1 garbage collector to minimize blocking within the JVM.
+of servers using a Serial garbage collector. In most cases it will be preferable to activate a garbage collector
+that reduces the pause time and latency introduced by garbage collectors. The concurrent garbage collector (CMS),
+G1 garbage collector and Z Garbage Collector (ZGC) are examples of collectors that minimize blocking within the JVM.
+</p>
+<p>
 When using CMS, you may be able to counter the effects of heap fragmentation by using JMX to invoke 
 System.gc() when the cluster is relatively idle (e.g. overnight). This has the effect of temporarily 
 interrupting the concurrent GC algorithm in favor of the default GC to collect and compact the heap.
@@ -267,7 +277,8 @@ OPENFIRE_OPTS="-Xmx4G -Xms4G -XX:NewRatio=1 -XX:SurvivorRatio=4
                -XX:+PrintGCDetails -XX:+PrintPromotionFailure"
 </pre>
 <p>This GC configuration will also emit helpful GC diagnostic information to the console to aid further
-tuning and troubleshooting as appropriate for your deployment.
+tuning and troubleshooting as appropriate for your deployment. Please refer to the documentation of your Java runtime
+environment to learn about the available collectors and their configuration.
 </p>
 
 <h2>Configuring Cache expiry times and sizes</h2>
@@ -281,7 +292,7 @@ different configurations on different nodes is liable to lead to odd behaviour.
     <code>cache.[cache name].maxLifetime</code> and <code>cache.[cache name].size</code> System Properties</p>
 
 <h3>Plugin defined caches</h3>
-A plugin can create it's own Cache without the requirement to edit any configuration files. For example;
+A plugin can create its own Cache without the requirement to edit any configuration files. For example;
 
 <pre>
     final String cacheName = "my-test-cache";
@@ -331,7 +342,7 @@ Notes;
 &lt;group&gt;
     &lt;name&gt;openfire&lt;/name&gt;
     &lt;password>mysecret&lt;/password&gt;
-    &lt;/group&gt;
+&lt;/group&gt;
 </pre>
 <p>
     With the offending lines in your configuration, the Hazelcast plugin will fail to start up, logging errors like these:
@@ -365,5 +376,25 @@ com.hazelcast.config.InvalidConfigurationException: cvc-complex-type.2.4.a: Inva
 &lt;/cp-subsystem&gt;
 </pre>
 
+<h2>Q&A for upgrade hazelcast.jar from 3.1.0 to 5.5.0 Release 1 (which upgrades Hazelcast from 5.3.7 to 5.5.0)</h2>
+<p>
+    When upgrading to hazelcast.jar 5.5.0 Release 1 from an earlier version, a minor upgrade of the Hazelcast library is
+    introduced (from 5.3.7 to 5.5.0). The configuration in <code>conf/hazelcast-local-config.xml</code> will require
+    modification for clustering functionality to be restored.
+</p>
+<p>
+    It is advisable to backup <code>conf/hazelcast-local-config.xml</code>, remove it, and have it generated anew, to
+    then manually apply previously applied configuration changes.
+</p>
+<p>
+    Support for the CP Subsystem has been removed from the community edition of Hazelcast. As a result, the
+    corresponding configuration (the <code>cp-subsystem</code> element) must be removed from your
+    <code>conf/hazelcast-local-config.xml</code> file. If the CP Subsystem configuration is not removed, the cluster
+    will fail to be initialized, and the following error will be added to the logs:
+</p>
+<p>
+    <code>2024.11.05 18:59:24.051 ERROR [PluginMonitorTask-2]: com.hazelcast.instance.impl.Node - Node creation failed
+        java.lang.IllegalStateException: CP subsystem is a licensed feature. Please ensure you have an Enterprise license that enables CP.</code>
+</p>
 </body>
 </html>

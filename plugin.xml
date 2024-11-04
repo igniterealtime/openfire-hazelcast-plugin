@@ -8,5 +8,5 @@
     <version>${project.version}</version>
     <date>2024-11-05</date>
     <minServerVersion>4.8.1</minServerVersion>
-    <minJavaVersion>1.8</minJavaVersion>
+    <minJavaVersion>17</minJavaVersion>
 </plugin>
