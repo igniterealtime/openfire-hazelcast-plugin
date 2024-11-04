@@ -302,6 +302,15 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
 
     @Override
     public long getMaxCacheSize() {
+        final int size = config.getEvictionConfig().getSize();
+        if (size == Integer.MAX_VALUE) {
+            return -1; // Hazelcast doesn't use negative values.
+        }
+
+        if (getCapacityUnit() != null && getCapacityUnit() == CapacityUnit.BYTES) {
+            return config.getEvictionConfig().getSize() * 1024 * 1024L; // Hazelcast stores this as megabyte, not byte.
+        }
+
         return config.getEvictionConfig().getSize();
     }
 
