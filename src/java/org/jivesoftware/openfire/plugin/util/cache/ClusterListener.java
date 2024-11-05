@@ -34,8 +34,12 @@ import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.time.LocalTime;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * ClusterListener reacts to membership changes in the cluster. It takes care of cleaning up the state
@@ -64,7 +68,7 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
     private boolean isSenior;
 
     synchronized void register(final Cluster cluster) {
-        logger.info("Cluster is being established. Executing queued events (if any).");
+        logger.info("Registering with cluster. Executing any queued events to complete Openfire cluster formation.");
         this.cluster = cluster;
         this.clusterFuture.complete(cluster);
 
@@ -75,7 +79,7 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
     }
 
     synchronized void unregister() {
-        logger.info("Unregistering cluster. Cancelling queued events (if any)");
+        logger.info("Unregistering with cluster. Cancelling any events to that where queued for completing Openfire cluster formation.");
         if (!this.clusterFuture.isDone()) {
             this.clusterFuture.cancel(true);
         }
