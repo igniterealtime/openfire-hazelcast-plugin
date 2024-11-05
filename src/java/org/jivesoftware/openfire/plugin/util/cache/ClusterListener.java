@@ -38,6 +38,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -50,7 +51,8 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
 
     private boolean seniorClusterMember = false;
 
-    private final Cluster cluster;
+    private CompletableFuture<Cluster> clusterFuture = new CompletableFuture<>();
+    private Cluster cluster; // Must not be used until clusterFuture is done.
     private final Map<NodeID, ClusterNodeInfo> clusterNodesInfo = new ConcurrentHashMap<>();
     
     /**
@@ -65,12 +67,21 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
     private boolean clusterMember = false;
     private boolean isSenior;
 
-    ClusterListener(final Cluster cluster) {
-
+    synchronized void register(final Cluster cluster) {
+        logger.info("Registering with cluster. Executing any queued events to complete Openfire cluster formation.");
         this.cluster = cluster;
+        this.clusterFuture.complete(cluster);
+
         for (final Member member : cluster.getMembers()) {
             clusterNodesInfo.put(ClusteredCacheFactory.getNodeID(member),
                     new HazelcastClusterNodeInfo(member, cluster.getClusterTime()));
+        }
+    }
+
+    synchronized void unregister() {
+        logger.info("Unregistering with cluster. Cancelling any events to that where queued for completing Openfire cluster formation.");
+        if (!this.clusterFuture.isDone()) {
+            this.clusterFuture.cancel(true);
         }
     }
 
@@ -136,6 +147,17 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
     @Override
     public void memberAdded(final MembershipEvent event) {
         logger.info("Received a Hazelcast memberAdded event {}", event);
+
+        synchronized (this) {
+            if (!clusterFuture.isDone()) {
+                logger.info("Queue memberAdded event until after cluster has been established.");
+                clusterFuture = clusterFuture.thenApply(e -> {
+                    memberAdded(event);
+                    return e;
+                });
+                return;
+            }
+        }
 
         final boolean wasSenior = isSenior;
         isSenior = isSeniorClusterMember();
@@ -210,6 +232,17 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
     public void memberRemoved(final MembershipEvent event) {
         logger.info("Received a Hazelcast memberRemoved event {}", event);
 
+        synchronized (this) {
+            if (!clusterFuture.isDone()) {
+                logger.info("Queue memberRemoved event until after cluster has been established.");
+                clusterFuture = clusterFuture.thenApply(e -> {
+                    memberRemoved(event);
+                    return e;
+                });
+                return;
+            }
+        }
+
         isSenior = isSeniorClusterMember();
         final NodeID nodeID = ClusteredCacheFactory.getNodeID(event.getMember());
 
@@ -242,6 +275,19 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
 
     @Override
     public void stateChanged(final LifecycleEvent event) {
+        logger.info("Received a Hazelcast stateChanged event {}", event);
+
+        synchronized (this) {
+            if (!clusterFuture.isDone()) {
+                logger.info("Queue LifecycleEvent event until after cluster has been established.");
+                clusterFuture = clusterFuture.thenApply(e -> {
+                    stateChanged(event);
+                    return e;
+                });
+                return;
+            }
+        }
+
         if (event.getState().equals(LifecycleState.SHUTDOWN)) {
             leaveCluster();
         } else if (event.getState().equals(LifecycleState.STARTED)) {

@@ -134,8 +134,6 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
     private static HazelcastInstance hazelcast = null;
     private static Cluster cluster = null;
     private ClusterListener clusterListener;
-    private UUID lifecycleListener;
-    private UUID membershipListener;
 
     /**
      * Keeps that running state. Initial state is stopped.
@@ -165,38 +163,44 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
         final ClassLoader oldLoader = Thread.currentThread().getContextClassLoader();
         final ClassLoader loader = new ClusterClassLoader();
         Thread.currentThread().setContextClassLoader(loader);
+
+        // Prepare for the cluster configuration.
+        final Config config = new ClasspathXmlConfig(HAZELCAST_CONFIG_FILE.getValue());
+        final NetworkConfig networkConfig = config.getNetworkConfig();
+        if (!HAZELCAST_MEMCACHE_ENABLED.getValue()) {
+            networkConfig.setMemcacheProtocolConfig(new MemcacheProtocolConfig().setEnabled(false));
+        }
+        if (!HAZELCAST_REST_ENABLED.getValue()) {
+            networkConfig.setRestApiConfig(new RestApiConfig().setEnabled(false));
+        }
+        final MemberAttributeConfig memberAttributeConfig = config.getMemberAttributeConfig();
+        memberAttributeConfig.setAttribute(HazelcastClusterNodeInfo.HOST_NAME_ATTRIBUTE, XMPPServer.getInstance().getServerInfo().getHostname());
+        memberAttributeConfig.setAttribute(HazelcastClusterNodeInfo.NODE_ID_ATTRIBUTE, XMPPServer.getInstance().getNodeID().toString());
+        config.setInstanceName("openfire");
+        config.setClassLoader(loader);
+        if (JMXManager.isEnabled() && HAZELCAST_JMX_ENABLED.getValue()) {
+            config.setProperty("hazelcast.jmx", "true");
+            config.setProperty("hazelcast.jmx.detailed", "true");
+        }
+
+        // Ensure that listeners are added before the cluster is initialized, to prevent missing events due to a race condition. See issue #103.
+        clusterListener = new ClusterListener();
+        config.addListenerConfig(new ListenerConfig(clusterListener));
+
         int retry = 0;
         do {
             try {
-                final Config config = new ClasspathXmlConfig(HAZELCAST_CONFIG_FILE.getValue());
-                final NetworkConfig networkConfig = config.getNetworkConfig();
-                if (!HAZELCAST_MEMCACHE_ENABLED.getValue()) {
-                    networkConfig.setMemcacheProtocolConfig(new MemcacheProtocolConfig().setEnabled(false));
-                }
-                if (!HAZELCAST_REST_ENABLED.getValue()) {
-                    networkConfig.setRestApiConfig(new RestApiConfig().setEnabled(false));
-                }
-                final MemberAttributeConfig memberAttributeConfig = config.getMemberAttributeConfig();
-                memberAttributeConfig.setAttribute(HazelcastClusterNodeInfo.HOST_NAME_ATTRIBUTE, XMPPServer.getInstance().getServerInfo().getHostname());
-                memberAttributeConfig.setAttribute(HazelcastClusterNodeInfo.NODE_ID_ATTRIBUTE, XMPPServer.getInstance().getNodeID().toString());
-                config.setInstanceName("openfire");
-                config.setClassLoader(loader);
-                if (JMXManager.isEnabled() && HAZELCAST_JMX_ENABLED.getValue()) {
-                    config.setProperty("hazelcast.jmx", "true");
-                    config.setProperty("hazelcast.jmx.detailed", "true");
-                }
                 hazelcast = Hazelcast.newHazelcastInstance(config);
                 cluster = hazelcast.getCluster();
                 state = State.started;
-                // CacheFactory is now using clustered caches. We can add our listeners.
-                clusterListener = new ClusterListener(cluster);
+                // CacheFactory is now using clustered caches.
+                clusterListener.register(cluster);
                 clusterListener.joinCluster();
-                lifecycleListener = hazelcast.getLifecycleService().addLifecycleListener(clusterListener);
-                membershipListener = cluster.addMembershipListener(clusterListener);
                 logger.info("Hazelcast clustering started");
                 break;
             } catch (final Exception e) {
                 cluster = null;
+                clusterListener.unregister();
                 if (retry < CLUSTER_STARTUP_RETRY_COUNT.getValue()) {
                     logger.warn("Failed to start clustering (" + e.getMessage() + "); " +
                         "will retry in " + StringUtils.getFullElapsedTime(CLUSTER_STARTUP_RETRY_TIME.getValue()));
@@ -230,12 +234,9 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
         // cluster is shutdown so it can be copied in to the non-clustered, DefaultCache
         fireLeftClusterAndWaitToComplete(Duration.ofSeconds(30));
         // Stop the cluster
-        hazelcast.getLifecycleService().removeLifecycleListener(lifecycleListener);
-        cluster.removeMembershipListener(membershipListener);
         Hazelcast.shutdownAll();
         cluster = null;
-        lifecycleListener = null;
-        membershipListener = null;
+        clusterListener.unregister();
         clusterListener = null;
 
         // Reset packet router to use to deliver packets to remote cluster nodes
