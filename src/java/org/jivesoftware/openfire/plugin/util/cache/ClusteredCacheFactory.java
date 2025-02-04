@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2009 Jive Software, 2024 Ignite Realtime Foundation. All rights reserved.
+ * Copyright (C) 2007-2009 Jive Software, 2024-2025 Ignite Realtime Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -466,7 +466,7 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
         // Check that the requested member was found
         if (member != null) {
             // Asynchronously execute the task on the target member
-            logger.debug("Executing DistributedTask: " + task.getClass().getName());
+            logger.debug("Executing DistributedTask: {} on {} cluster node: {} ({}/{})", task.getClass().getName(), member.localMember() ? "local" : "remote", member.getAddress(), member.getUuid(), new String(nodeID, StandardCharsets.UTF_8));
             final PluginClassLoader pluginClassLoader = checkForPluginClassLoader(task);
             final ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
             try {
@@ -478,9 +478,9 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
                 result = future.get(MAX_CLUSTER_EXECUTION_TIME.getValue().getSeconds(), TimeUnit.SECONDS);
                 logger.trace("DistributedTask result: {}", result);
             } catch (final TimeoutException te) {
-                logger.error("Failed to execute cluster task within " + MAX_CLUSTER_EXECUTION_TIME + " seconds", te);
+                logger.error("Failed to execute cluster task within {} seconds. Task type: {}. Peer cluster node: {} ({}/{}) {}", MAX_CLUSTER_EXECUTION_TIME.getValue().getSeconds(), task.getClass().getName(), member.getAddress(), member.getUuid(), new String(nodeID, StandardCharsets.UTF_8), member.localMember() ? "local member" : "non-local member", te);
             } catch (final Exception e) {
-                logger.error("Failed to execute cluster task", e);
+                logger.error("Failed to execute cluster task. Task type: {}. Peer cluster node: {} ({}/{}) {}", task.getClass().getName(), member.getAddress(), member.getUuid(), new String(nodeID, StandardCharsets.UTF_8), member.localMember() ? "local member" : "non-local member", e);
             } finally {
                 if (pluginClassLoader != null) {
                     // Revert back to the original classloader.
