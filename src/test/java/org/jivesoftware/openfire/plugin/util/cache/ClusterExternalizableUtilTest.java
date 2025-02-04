@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Ignite Realtime Foundation. All rights reserved.
+ * Copyright (C) 2022-2025 Ignite Realtime Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ public class ClusterExternalizableUtilTest
         final Message m2 = new Message();
         m2.setBody("The brown fox jumped over the ... something");
         m2.setTo(new JID("john", "example.com", "aw23r2"));
-        m2.setFrom(new JID("jane", "example.net", "asdf"));
+        m2.setFrom(new JID("jane", "example.net", "Ψ+"));
 
         final List<DefaultElement> elements = new LinkedList<>();
         elements.add((DefaultElement) m1.getElement());
@@ -88,7 +88,7 @@ public class ClusterExternalizableUtilTest
         final Message m2 = new Message();
         m2.setBody("The brown fox jumped over the ... something");
         m2.setTo(new JID("john", "example.com", "aw23r2"));
-        m2.setFrom(new JID("jane", "example.net", "asdf"));
+        m2.setFrom(new JID("jane", "example.net", "Ψ+"));
 
         final List<DefaultElement> elements = new LinkedList<>();
         elements.add((DefaultElement) m1.getElement());
