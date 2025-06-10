@@ -40,6 +40,7 @@ import org.jivesoftware.util.cache.CacheWrapper;
 import org.jivesoftware.util.cache.ClusterTask;
 import org.jivesoftware.util.cache.ExternalizableUtil;
 import org.jivesoftware.util.cache.ExternalizableUtilStrategy;
+import org.jivesoftware.util.cache.SerializingCache;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -288,6 +289,9 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
     public void destroyCache(Cache cache) {
         if (cache instanceof CacheWrapper) {
             cache = ((CacheWrapper) cache).getWrappedCache();
+        }
+        if (cache instanceof SerializingCache) {
+            cache = ((SerializingCache) cache).getDelegate();
         }
 
         final ClusteredCache clustered = (ClusteredCache) cache;
