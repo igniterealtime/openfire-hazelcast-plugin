@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2009 Jive Software, 2024 Ignite Realtime Foundation. All rights reserved.
+ * Copyright (C) 2007-2009 Jive Software, 2024-2025 Ignite Realtime Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,13 +33,7 @@ import org.jivesoftware.openfire.plugin.HazelcastPlugin;
 import org.jivesoftware.openfire.plugin.util.cluster.HazelcastClusterNodeInfo;
 import org.jivesoftware.util.StringUtils;
 import org.jivesoftware.util.SystemProperty;
-import org.jivesoftware.util.cache.Cache;
-import org.jivesoftware.util.cache.CacheFactory;
-import org.jivesoftware.util.cache.CacheFactoryStrategy;
-import org.jivesoftware.util.cache.CacheWrapper;
-import org.jivesoftware.util.cache.ClusterTask;
-import org.jivesoftware.util.cache.ExternalizableUtil;
-import org.jivesoftware.util.cache.ExternalizableUtilStrategy;
+import org.jivesoftware.util.cache.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -290,6 +284,9 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
     public void destroyCache(Cache cache) {
         if (cache instanceof CacheWrapper) {
             cache = ((CacheWrapper) cache).getWrappedCache();
+        }
+        if (cache instanceof SerializingCache) {
+            cache = ((SerializingCache) cache).getDelegate();
         }
 
         final ClusteredCache clustered = (ClusteredCache) cache;
@@ -554,6 +551,9 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
     public Lock getLock(final Object key, Cache cache) {
         if (cache instanceof CacheWrapper) {
             cache = ((CacheWrapper) cache).getWrappedCache();
+        }
+        if (cache instanceof SerializingCache) {
+            cache = ((SerializingCache) cache).getDelegate();
         }
         // TODO: Update CacheFactoryStrategy so the signature is getLock(final Serializable key, Cache<Serializable, Serializable> cache)
         @SuppressWarnings("unchecked") final ClusterLock clusterLock = new ClusterLock((Serializable) key, (ClusteredCache<Serializable, ?>) cache);
