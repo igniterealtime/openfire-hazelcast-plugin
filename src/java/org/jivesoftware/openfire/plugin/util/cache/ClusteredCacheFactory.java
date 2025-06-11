@@ -55,8 +55,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
 
 /**
  * CacheFactory implementation to use when using Hazelcast in cluster mode.
@@ -550,16 +548,6 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
         return PLUGIN_NAME;
     }
 
-    @Override
-    public Lock getLock(final Object key, Cache cache) {
-        if (cache instanceof CacheWrapper) {
-            cache = ((CacheWrapper) cache).getWrappedCache();
-        }
-        // TODO: Update CacheFactoryStrategy so the signature is getLock(final Serializable key, Cache<Serializable, Serializable> cache)
-        @SuppressWarnings("unchecked") final ClusterLock clusterLock = new ClusterLock((Serializable) key, (ClusteredCache<Serializable, ?>) cache);
-        return clusterLock;
-    }
-
     /**
      * ClusterTasks that are executed should not be provided by a plugin. These will cause issues related to class
      * loading when the providing plugin is reloaded. This method verifies if an instance of a task is
@@ -599,47 +587,6 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
             }
         }
         return result;
-    }
-
-    private static class ClusterLock implements Lock {
-
-        private final Serializable key;
-        private final ClusteredCache<Serializable, ?> cache;
-
-        ClusterLock(final Serializable key, final ClusteredCache<Serializable, ?> cache) {
-            this.key = key;
-            this.cache = cache;
-        }
-
-        @Override
-        public void lock() {
-            cache.lock(key, -1);
-        }
-
-        @Override
-        public void lockInterruptibly() {
-            cache.lock(key, -1);
-        }
-
-        @Override
-        public boolean tryLock() {
-            return cache.lock(key, 0);
-        }
-
-        @Override
-        public boolean tryLock(final long time, final TimeUnit unit) {
-            return cache.lock(key, unit.toMillis(time));
-        }
-
-        @Override
-        public void unlock() {
-            cache.unlock(key);
-        }
-
-        @Override
-        public Condition newCondition() {
-            throw new UnsupportedOperationException();
-        }
     }
 
     private static class CallableTask<V> implements Callable<V>, Serializable {
@@ -713,8 +660,4 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
             ClusterManager.removeListener(clusterEventListener);
         }
     }
-
 }
-
-
-
