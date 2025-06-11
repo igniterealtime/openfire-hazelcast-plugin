@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1999-2009 Jive Software, 2024 Ignite Realtime Foundation. All rights reserved.
+ * Copyright (C) 1999-2009 Jive Software, 2024-2025 Ignite Realtime Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,6 +43,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
 
 /**
  * Clustered implementation of the Cache interface using Hazelcast.
@@ -345,29 +347,10 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
         map.destroy();
     }
 
-    boolean lock(final K key, final long timeout) {
-        boolean result = true;
-        if (timeout < 0) {
-            map.lock(key);
-        } else if (timeout == 0) {
-            result = map.tryLock(key);
-        } else {
-            try {
-                result = map.tryLock(key, timeout, TimeUnit.MILLISECONDS);
-            } catch (final InterruptedException e) {
-                logger.error("Failed to get cluster lock", e);
-                result = false;
-            }
-        }
-        return result;
-    }
-
-    void unlock(final K key) {
-        try {
-            map.unlock(key);
-        } catch (final IllegalMonitorStateException e) {
-            logger.error("Failed to release cluster lock", e);
-        }
+    @Override
+    public Lock getLock(K key)
+    {
+        return new ClusterLock(key);
     }
 
     /**
@@ -401,6 +384,77 @@ public class ClusteredCache<K extends Serializable, V extends Serializable> impl
                 "This will cause issues when reloading the plugin that provides this class. The plugin implementation should be modified.",
                 o.getClass(), pluginName != null ? pluginName : "a PluginClassLoader");
             lastPluginClassLoaderWarning = Instant.now();
+        }
+    }
+
+    class ClusterLock implements Lock
+    {
+        private final K key;
+
+        public ClusterLock(final K key)
+        {
+            this.key = key;
+        }
+
+        @Override
+        public void lock()
+        {
+            doLock(key, -1);
+        }
+
+        @Override
+        public void lockInterruptibly()
+        {
+            doLock(key, -1);
+        }
+
+        @Override
+        public boolean tryLock()
+        {
+            return doLock(key, 0);
+        }
+
+        @Override
+        public boolean tryLock(final long time, final TimeUnit unit)
+        {
+            return doLock(key, unit.toMillis(time));
+        }
+
+        @Override
+        public void unlock()
+        {
+            doUnlock(key);
+        }
+
+        @Override
+        public Condition newCondition()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        boolean doLock(final K key, final long timeout) {
+            boolean result = true;
+            if (timeout < 0) {
+                map.lock(key);
+            } else if (timeout == 0) {
+                result = map.tryLock(key);
+            } else {
+                try {
+                    result = map.tryLock(key, timeout, TimeUnit.MILLISECONDS);
+                } catch (final InterruptedException e) {
+                    logger.error("Failed to get cluster lock", e);
+                    result = false;
+                }
+            }
+            return result;
+        }
+
+        void doUnlock(final K key) {
+            try {
+                map.unlock(key);
+            } catch (final IllegalMonitorStateException e) {
+                logger.error("Failed to release cluster lock", e);
+            }
         }
     }
 }
