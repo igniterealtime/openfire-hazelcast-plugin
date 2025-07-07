@@ -6,7 +6,6 @@
                  org.jivesoftware.openfire.cluster.NodeID,
                  org.jivesoftware.openfire.cluster.ClusterNodeInfo"
 %>
-<%@ page import="org.jivesoftware.util.Base64" %>
 <%@ page import="org.jivesoftware.util.JiveGlobals" %>
 <%@ page import="org.jivesoftware.util.LocaleUtils" %>
 <%@ page import="org.jivesoftware.util.ParamUtils" %>
@@ -94,7 +93,7 @@
     if (uid == null) {
         byteArray = members.isEmpty() ? new byte[] {0} : members.get(0).getNodeID().toByteArray();
     } else {
-        byteArray = Base64.decode(uid, Base64.URL_SAFE);
+        byteArray = Base64.getDecoder().decode(uid);
     }
 
     // Get the specific member requested
