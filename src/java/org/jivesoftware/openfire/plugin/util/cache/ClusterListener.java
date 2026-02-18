@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1999-2009 Jive Software, 2024 Ignite Realtime Foundation. All rights reserved.
+ * Copyright (C) 1999-2009 Jive Software, 2024-2026 Ignite Realtime Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -70,12 +70,19 @@ public class ClusterListener implements MembershipListener, LifecycleListener {
     synchronized void register(final Cluster cluster) {
         logger.info("Registering with cluster. Executing any queued events to complete Openfire cluster formation.");
         this.cluster = cluster;
-        this.clusterFuture.complete(cluster);
+        this.clusterNodesInfo.clear();
 
         for (final Member member : cluster.getMembers()) {
-            clusterNodesInfo.put(ClusteredCacheFactory.getNodeID(member),
-                    new HazelcastClusterNodeInfo(member, cluster.getClusterTime()));
+            final NodeID nodeID = ClusteredCacheFactory.getNodeID(member);
+            final ClusterNodeInfo preexistingValue = clusterNodesInfo.put(nodeID, new HazelcastClusterNodeInfo(member, cluster.getClusterTime()));
+
+            // Ensure that the cluster nodes have unique NodeID values.
+            if (preexistingValue != null)
+            {
+                throw new IllegalStateException("Unable to register to the cluster. The cluster contains nodes (servers) with the same NodeID '" + nodeID + "'. Each cluster node MUST have a unique nodeID value. Check the configured NodeID value (e.g. in openfire.xml) and ensure that it's a unique value in the cluster.");
+            }
         }
+        this.clusterFuture.complete(cluster);
     }
 
     synchronized void unregister() {
