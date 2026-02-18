@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2009 Jive Software, 2022-2024 Ignite Realtime Foundation. All rights reserved.
+ * Copyright (C) 2004-2009 Jive Software, 2022-2026 Ignite Realtime Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.concurrent.CompletableFuture;
 
 import org.jivesoftware.openfire.XMPPServer;
 import org.jivesoftware.openfire.cluster.ClusterManager;
@@ -55,7 +56,7 @@ public class HazelcastPlugin implements Plugin {
             @Override
             public void pluginsMonitored() {
                 manager.removePluginManagerListener(this);
-                initializeClustering(pluginDirectory);
+                CompletableFuture.runAsync(() -> initializeClustering(pluginDirectory)) ;
             }
         });
 
