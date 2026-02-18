@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2009 Jive Software, 2024-2025 Ignite Realtime Foundation. All rights reserved.
+ * Copyright (C) 2007-2009 Jive Software, 2024-2026 Ignite Realtime Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -152,6 +152,7 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
     @Override
     public boolean startCluster() {
         logger.info("Starting hazelcast clustering");
+        System.out.println("Starting hazelcast clustering");
         state = State.starting;
 
         // Set the serialization strategy to use for transmitting objects between node clusters
@@ -196,6 +197,7 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
                 clusterListener.register(cluster);
                 clusterListener.joinCluster();
                 logger.info("Hazelcast clustering started");
+                System.out.println("Hazelcast clustering started");
                 break;
             } catch (final Exception e) {
                 cluster = null;
@@ -210,6 +212,7 @@ public class ClusteredCacheFactory implements CacheFactoryStrategy {
                     }
                 } else {
                     logger.error("Unable to start clustering - continuing in local mode", e);
+                    System.err.println("Unable to start clustering - continuing in local mode. " + (e.getMessage() != null ? e.getMessage() : ""));
                     state = State.stopped;
                 }
             }
