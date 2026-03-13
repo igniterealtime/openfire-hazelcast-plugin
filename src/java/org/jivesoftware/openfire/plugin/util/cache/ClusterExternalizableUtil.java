@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2009 Jive Software, 2020-2024 Ignite Realtime Foundation. All rights reserved.
+ * Copyright (C) 2004-2009 Jive Software, 2020-2026 Ignite Realtime Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.locks.Lock;
 
+import com.google.common.annotations.VisibleForTesting;
 import org.jivesoftware.util.cache.Cache;
 import org.jivesoftware.util.cache.CacheFactory;
 import org.jivesoftware.util.cache.ExternalizableUtilStrategy;
@@ -59,6 +60,18 @@ public class ClusterExternalizableUtil implements ExternalizableUtilStrategy {
      */
     public static void purgeCachedClassDefinitions() {
         CLASS_CACHE.clear();
+    }
+
+    /**
+     * Checks if a particular class is cached.
+     *
+     * @param name the name of the class.
+     * @return true if a class is cached under that name, otherwise false.
+     */
+    @VisibleForTesting
+    static boolean isClassCached(String name)
+    {
+        return CLASS_CACHE.containsKey(name);
     }
 
     /**
@@ -341,10 +354,11 @@ public class ClusterExternalizableUtil implements ExternalizableUtilStrategy {
      * @throws IOException if an error occurs.
      * @return the number of elements added to the collection.
      */
+    @SuppressWarnings("unchecked")
     public int readSerializableMap(DataInput in, Map<? extends Serializable, ? extends Serializable> map, ClassLoader loader) throws IOException {
-        Map<String, Serializable> result = (Map<String, Serializable>) readObject(loader, in);
+        Map<Serializable, Serializable> result = (Map<Serializable, Serializable>) readObject(loader, in);
         if (result == null) return 0;
-        ((Map<String, Serializable>)map).putAll(result);
+        ((Map<Serializable, Serializable>)map).putAll(result);
         return result.size();
     }
     
@@ -517,8 +531,8 @@ public class ClusterExternalizableUtil implements ExternalizableUtilStrategy {
     }
 
     private static final Class[] PRIMITIVE_CLASSES_ARRAY = {int.class, long.class, boolean.class, byte.class,
-        float.class, double.class, byte.class, char.class, short.class, void.class};
+        float.class, double.class, char.class, short.class, void.class};
     private static final int MAX_PRIM_CLASSNAME_LENGTH = 7; // boolean.class.getName().length();
 
-    
+
 }
