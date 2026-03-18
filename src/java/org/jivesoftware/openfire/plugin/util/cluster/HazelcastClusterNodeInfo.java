@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1999-2009 Jive Software. All rights reserved.
+ * Copyright (C) 1999-2009 Jive Software, 2026 Ignite Realtime Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,13 +36,11 @@ public class HazelcastClusterNodeInfo implements ClusterNodeInfo {
     private final String hostname;
     private final NodeID nodeID;
     private final long joinedTime;
-    private final boolean seniorMember;
 
     public HazelcastClusterNodeInfo(final Member member, final long joinedTime) {
         this.hostname = member.getAttribute(HOST_NAME_ATTRIBUTE) + " (" + member.getSocketAddress().getHostString() + ")";
         this.nodeID = ClusteredCacheFactory.getNodeID(member);
         this.joinedTime = joinedTime;
-        this.seniorMember = ClusterManager.getSeniorClusterMember().equals(nodeID);
     }
 
     public String getHostName() {
@@ -58,6 +56,6 @@ public class HazelcastClusterNodeInfo implements ClusterNodeInfo {
     }
 
     public boolean isSeniorMember() {
-        return seniorMember;
+        return ClusterManager.getSeniorClusterMember().equals(nodeID);
     }
 }
