@@ -293,6 +293,12 @@
         <time-to-live-seconds>21600</time-to-live-seconds>
         <eviction eviction-policy="LRU" max-size-policy="PER_NODE" size="10000"/>
     </map>
+    <!-- "Account Lock States" is used by Openfire versions with OF-2279; "Locked Out Accounts" by earlier versions. -->
+    <map name="Account Lock States">
+        <backup-count>1</backup-count>
+        <time-to-live-seconds>900</time-to-live-seconds>
+        <eviction eviction-policy="LRU" max-size-policy="PER_NODE" size="100000"/>
+    </map>
     <map name="Locked Out Accounts">
         <backup-count>1</backup-count>
         <time-to-live-seconds>900</time-to-live-seconds>
